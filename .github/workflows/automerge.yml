@@ -1,0 +1,25 @@
+name: "Automerge when Approved"
+
+on:
+  pull_request_review:
+    types: [submitted]
+  check_suite:
+    types: [completed]
+  pull_request:
+    types: [synchronize, reopened]
+
+permissions:
+  pull-requests: write
+  checks: read
+
+jobs:
+  automerge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Automerge when conditions met
+        uses: pascalgn/automerge-action@v0.15.3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          merge_method: squash
+          required_approvals: 2
+          required_status_checks: ""

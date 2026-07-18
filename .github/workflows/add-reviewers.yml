@@ -1,0 +1,30 @@
+name: "Add PR Reviewers"
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  add-reviewers:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add default reviewers
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const reviewers = ['eruhigira-tech','jimmyshimwa', 'Calvin-labs', 'jngoh-maker', 'kelvinbruce110', 'pmadit-blip', 'ndizeyedavid'];
+            const pr = context.payload.pull_request;
+            if (!pr) {
+              core.info('No pull_request found in context');
+              return;
+            }
+            await github.rest.pulls.requestReviewers({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              reviewers
+            });
