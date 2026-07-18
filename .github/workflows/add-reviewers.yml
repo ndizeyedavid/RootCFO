@@ -22,9 +22,17 @@ jobs:
               core.info('No pull_request found in context');
               return;
             }
+            // Filter out the PR author from reviewers
+            const filteredReviewers = reviewers.filter(reviewer => reviewer !== pr.user.login);
+
+            if (filteredReviewers.length === 0) {
+              core.info('No reviewers to add after filtering out PR author');
+              return;
+            }
+
             await github.rest.pulls.requestReviewers({
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: pr.number,
-              reviewers
+              reviewers: filteredReviewers
             });
