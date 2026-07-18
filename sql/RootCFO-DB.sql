@@ -1,0 +1,1 @@
+-- Juliana: CREATE DATABASE and all 4 tables with relationships.
