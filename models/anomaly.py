@@ -6,21 +6,43 @@ from enum import Enum
 
 
 class Severity(Enum):
-    # Elyse: add CRITICAL, WARNING, INFO
-    pass
-
+    CRITICAL = "critical"
+    WARNING = "warning"
+    INFO = "info"
+    
 
 class AnomalyType(Enum):
-    # Elyse: add DUPLICATE, OFF_HOURS, BENFORD, VENDOR_PATTERN, AMOUNT_THRESHOLD, AI_FLAGGED
-    pass
+    DUPLICATE = "duplicate"
+    OFF_HOURS = "off_hours"
+    BENFORD = "benford"
+    VENDOR_PATTERN = "vendor_pattern"
+    AMOUNT_THRESHOLD = "amount_threshold"
+    AI_FLAGGED = "ai_flagged"
+    
 
 
 @dataclass
 class Anomaly:
-    """Elyse: Add fields: id, company_id, transaction_id, anomaly_type, severity, description, ai_analysis, flagged_at
+     id: Optional[int]
+    company_id: int
+    transaction_id: int
+    anomaly_type: str
+    severity: str
+    description: str
+    ai_analysis: Optional[str] = None
+    flagged_at: datetime = None
+ 
+    def __post_init__(self):
+        if self.flagged_at is None:
+            self.flagged_at = datetime.now()
 
-    Add properties:
-        severity_enum -> Severity
-        severity_color -> str  (returns CSS class name)
-    """
-    pass
+      @property
+    def severity_enum(self) -> Severity:
+        return Severity(self.severity)
+    @property
+    def severity_color(self) -> str:
+        return {
+            Severity.CRITICAL: "critical",
+            Severity.WARNING: "warning",   
+            Severity.INFO: "info",     
+        }[self.severity_enum]
