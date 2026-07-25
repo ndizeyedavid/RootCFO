@@ -27,3 +27,17 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (company_id) REFERENCES companies (id) ON DELETE CASCADE
 );
+
+-- Transactions table
+CREATE TABLE IF NOT EXISTS transactions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    company_id INT NOT NULL,
+    date DATE NOT NULL,
+    description VARCHAR(500),
+    amount DECIMAL(15, 2) NOT NULL,
+    account VARCHAR(100),
+    person VARCHAR(100),
+    source_file VARCHAR(255),
+    ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (company_id) REFERENCES companies (id) ON DELETE CASCADE
+);
