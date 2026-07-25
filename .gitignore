@@ -1,8 +1,1 @@
-#*#
-~*
-testing
-__pycache__
-*.pyc
-.env
-.venv.env
 .env
