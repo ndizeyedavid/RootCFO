@@ -10,7 +10,7 @@ class DatabaseError(Exception):
 
 
 class DatabaseManager:
-    """Priscilla: Implement all methods below."""
+    """Priscilla: Implements all methods below."""
 
     def __init__(self):
         self.connection = None
