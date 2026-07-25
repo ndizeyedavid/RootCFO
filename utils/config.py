@@ -1,4 +1,4 @@
-"""Priscilla: Load environment variables from .env file."""
+"""Priscilla: Loads environment variables from .env file."""
 
 import os
 from dotenv import load_dotenv
