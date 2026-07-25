@@ -41,3 +41,24 @@ CREATE TABLE IF NOT EXISTS transactions (
     ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (company_id) REFERENCES companies (id) ON DELETE CASCADE
 );
+
+-- Anomalies table
+CREATE TABLE IF NOT EXISTS anomalies (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    company_id INT NOT NULL,
+    transaction_id INT,
+    anomaly_type ENUM(
+        'duplicate',
+        'off_hours',
+        'benford_deviation',
+        'vendor_pattern',
+        'amount_threshold',
+        'ai_flagged'
+    ) NOT NULL,
+    severity ENUM('critical', 'warning', 'info') DEFAULT 'warning',
+    description TEXT NOT NULL,
+    ai_analysis TEXT,
+    flagged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (company_id) REFERENCES companies (id) ON DELETE CASCADE,
+    FOREIGN KEY (transaction_id) REFERENCES transactions (id) ON DELETE SET NULL
+);
