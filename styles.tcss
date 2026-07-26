@@ -1,3 +1,54 @@
-Input{
+DashboardScreen {
+    layout: vertical;
+}
+#dashboard-body {
+    height: 1fr;
+    layout: horizontal;
+}
+#sidebar {
+    width: 24;
+    height: 100%;
+    background: $panel;
+    border-right: solid $primary;
+}
+#sidebar .nav-btn {
+    width: 100%;
+    margin: 1 1 0 1;
+}
+#sidebar .nav-btn.-active {
+    background: $primary;
+    color: $text;
+    text-style: bold;
+}
+#sidebar-title {
+    padding: 1 2;
+    text-style: bold;
+    color: $accent;
+}
+#content-pane {
+    height: 100%;
+    width: 1fr;
+    padding: 0 1;
+}
+#audit-console {
+    height: 12;
+    border-top: solid $primary;
+    background: $surface;
     margin: 0;
+}
+#audit-label {
+    dock: top;
+    padding: 0 1;
+    color: $text-muted;
+    text-style: bold;
+    background: $surface;
+}
+.placeholder-title {
+    text-style: bold;
+    color: $primary;
+    padding: 1 2;
+}
+.placeholder-body {
+    padding: 0 2;
+    color: $text-muted;
 }
