@@ -3,9 +3,9 @@
 from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
-from textual.containers import Vertical
+from textual.containers import Vertical, Horizontal
 from textual.screen import Screen
-from textual.widgets import DataTable, Footer, Header, Label
+from textual.widgets import Button, DataTable, Footer, Header, Label, Static
 
 from services.db import DatabaseError
 
@@ -77,13 +77,22 @@ class ForensicLogScreen(Screen):
         # Calvin: Header + Label + DataTable + Footer
         yield Header()
         with Vertical():
-            yield Label("Forensic Log", id="forensic-log-title")
+            with Horizontal():
+                yield Button("\u2190 Back to Dashboard", id="back-dashboard", variant="default")
+                yield Static("", classes="spacer")
+                yield Label("Forensic Log", id="forensic-log-title")
             yield Label(
                 "No anomalies found for this company.",
                 id="empty-state",
             )
             yield DataTable(id="anomaly-table", cursor_type="row")
         yield Footer()
+
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        bid = event.button.id or ""
+        if bid == "back-dashboard":
+            self.app.switch_screen("dashboard")
 
     def on_mount(self) -> None:
         # Calvin: add columns to DataTable, fetch anomalies from DB, populate rows with style classes
