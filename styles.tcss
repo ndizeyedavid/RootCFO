@@ -1,85 +1,128 @@
 App {
-    color: $text;
-    background: $surface;
+  color: $text;
+  background: $surface;
 }
 Screen {
-    background: $surface;
+  background: $surface;
 }
 Header {
-    background: $primary;
-    color: $text;
-    text-style: bold;
+  background: $primary;
+  color: $text;
+  text-style: bold;
 }
 Footer {
-    background: $panel;
-    color: $text-muted;
+  background: $panel;
+  color: $text-muted;
 }
 Button:focus {
-    text-style: bold;
+  text-style: bold;
 }
 RichLog {
-    padding: 0 1;
+  padding: 0 1;
 }
 #audit-log .--info {
-    color: $success;
+  color: $success;
 }
 #audit-log .--warn {
-    color: $warning;
+  color: $warning;
 }
 #audit-log .--crit {
-    color: $error;
+  color: $error;
 }
 DashboardScreen {
-    layout: vertical;
+  layout: vertical;
 }
 #dashboard-body {
-    height: 1fr;
-    layout: horizontal;
+  height: 1fr;
+  layout: horizontal;
 }
 #sidebar {
-    width: 24;
-    height: 100%;
-    background: $panel;
-    border-right: solid $primary;
+  width: 24;
+  height: 100%;
+  background: $panel;
+  border-right: solid $primary;
 }
 #sidebar .nav-btn {
-    width: 100%;
-    margin: 1 1 0 1;
+  width: 100%;
+  margin: 1 1 0 1;
 }
 #sidebar .nav-btn.-active {
-    background: $primary;
-    color: $text;
-    text-style: bold;
+  background: $primary;
+  color: $text;
+  text-style: bold;
 }
 #sidebar-title {
-    padding: 1 2;
-    text-style: bold;
-    color: $accent;
+  padding: 1 2;
+  text-style: bold;
+  color: $accent;
 }
 #content-pane {
-    height: 100%;
-    width: 1fr;
-    padding: 0 1;
+  height: 100%;
+  width: 1fr;
+  padding: 0 1;
 }
 #audit-console {
-    height: 12;
-    border-top: solid $primary;
-    background: $surface;
-    margin: 0;
+  height: 12;
+  border-top: solid $primary;
+  background: $surface;
+  margin: 0;
 }
 #audit-label {
-    dock: top;
-    padding: 0 1;
-    color: $text-muted;
-    text-style: bold;
-    background: $surface;
+  dock: top;
+  padding: 0 1;
+  color: $text-muted;
+  text-style: bold;
+  background: $surface;
 }
 .placeholder-title {
-    text-style: bold;
-    color: $primary;
-    padding: 1 2;
+  text-style: bold;
+  color: $primary;
+  padding: 1 2;
 }
 .placeholder-body {
-    padding: 0 2;
-    color: $text-muted;
+  padding: 0 2;
+  color: $text-muted;
+}
+
+AuthScreen {
+  layout: vertical;
+  align-horizontal: center;
+}
+#auth-logo-wrap {
+  width: 100%;
+  height: auto;
+  content-align: center middle;
+  align-horizontal: center;
+  margin: 1 0 0 0;
+}
+#auth-logo {
+  width: auto;
+  height: auto;
+  align: center middle;
+  color: $accent;
+  background: transparent;
+  padding: 0 2;
+  text-align: center;
+}
+#auth-logo MarkdownFence,
+#auth-logo CodeBlock {
+  background: transparent;
+  color: $accent;
+}
+
+#signup-button {
+  margin-top: 1;
+}
+
+#login-button {
+  margin-top: 1;
+}
+
+#login-username,
+#signup-company,
+#signup-username,
+#onboarding-company-name,
+#onboarding-contact-email,
+#onboarding-address {
+  margin-bottom: 1;
 }
