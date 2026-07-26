@@ -1,4 +1,3 @@
-"""Bruce: Login and Signup screen with TabbedContent."""
 
 import bcrypt
 from textual.app import ComposeResult
@@ -8,15 +7,6 @@ from textual.containers import Vertical
 
 
 class AuthScreen(Screen):
-    """Bruce: Tabbed login/signup screen.
-
-    - Login tab: username + password + Sign In button → verify with bcrypt → push "dashboard"
-    - Signup tab: username + password + company name + Create Account button → hash pw → DB insert → push "onboarding"
-
-    Use:  self.app.db.insert_user(), self.app.db.fetch_user_by_username(), self.app.db.insert_company()
-    """
-
-    def compose(self) -> ComposeResult:
         yield Header()
         with TabbedContent():
             with TabPane("Login", id="login-tab"):
