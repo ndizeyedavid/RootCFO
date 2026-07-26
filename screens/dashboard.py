@@ -43,8 +43,6 @@ class DashboardScreen(Screen):
     Sidebar buttons switch content via ContentSwitcher.current.
     """
 
-    CSS = "styles.tcss"
-
     def __init__(self, initial_tab: Optional[str] = None):
         super().__init__()
         self._initial_tab = initial_tab or "dashboard"
@@ -63,7 +61,7 @@ class DashboardScreen(Screen):
             with Container(id="content-pane"):
                 with ContentSwitcher(initial=self._initial_tab, id="content-switcher"):
                     with Vertical(id="dashboard"):
-                        yield Static("📊  Audit Overview", classes="placeholder-title")
+                        yield Static("Audit Overview", classes="placeholder-title")
                         yield Static(
                             "Welcome to RootCFO. Use the sidebar to navigate.\n"
                             "• Ledger Ingestion — import CSV/JSON and run the pipeline\n"
@@ -72,21 +70,21 @@ class DashboardScreen(Screen):
                             classes="placeholder-body",
                         )
                     with Vertical(id="ingestion"):
-                        yield Static("📥  Ledger Ingestion", classes="placeholder-title")
+                        yield Static("Ledger Ingestion", classes="placeholder-title")
                         yield Static(
                             "Ingestion module placeholder.\n"
                             "Integrates with the full IngestionScreen when ready.",
                             classes="placeholder-body",
                         )
                     with Vertical(id="forensic_log"):
-                        yield Static("🔍  Forensic Log", classes="placeholder-title")
+                        yield Static("Forensic Log", classes="placeholder-title")
                         yield Static(
                             "Anomaly review module placeholder.\n"
                             "Integrates with ForensicLogScreen when ready.",
                             classes="placeholder-body",
                         )
                     with Vertical(id="settings"):
-                        yield Static("⚙️  Settings", classes="placeholder-title")
+                        yield Static("Settings", classes="placeholder-title")
                         yield Static(
                             "Settings module placeholder.\n"
                             "Business hours, API keys, and theme options live here.",
@@ -94,7 +92,7 @@ class DashboardScreen(Screen):
                         )
 
         with Container(id="audit-console"):
-            yield Label("🪵  Audit Console", id="audit-label")
+            yield Label("Audit Console", id="audit-label")
             yield RichLog(
                 id="audit-log",
                 auto_scroll=True,
@@ -105,7 +103,7 @@ class DashboardScreen(Screen):
         yield Footer()
 
     def on_mount(self) -> None:
-        self._update_active_button(self._initial_tab)
+        # self._update_active_button(self._initial_tab)
         self._current_tab = self._initial_tab
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
