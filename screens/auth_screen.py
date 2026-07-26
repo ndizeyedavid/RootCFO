@@ -33,7 +33,6 @@ class AuthScreen(Screen):
                     Label("Password"),
                     Input(placeholder="Password", password=True, id="login-password"),
                     Button("Sign In", id="login-button", variant="primary"),
-                    Label("", id="login-error"),
                 )
             with TabPane("Sign Up", id="signup-tab"):
                 yield Vertical(
@@ -44,7 +43,6 @@ class AuthScreen(Screen):
                     Label("Password"),
                     Input(placeholder="Password", password=True, id="signup-password"),
                     Button("Create Account", id="signup-button", variant="primary"),
-                    Label("", id="signup-error"),
                 )
         yield Footer()
 
@@ -57,15 +55,14 @@ class AuthScreen(Screen):
     def _handle_login(self) -> None:
         username = self.query_one("#login-username", Input).value.strip()
         password = self.query_one("#login-password", Input).value
-        error_label = self.query_one("#login-error", Label)
 
         if not username or not password:
-            error_label.update("Please enter both username and password.")
+            self.notify("Please enter both username and password.", severity="error")
             return
 
         user = self.app.db.fetch_user_by_username(username)
         if user is None:
-            error_label.update("Invalid username or password.")
+            self.notify("Invalid username or password.", severity="error")
             return
 
         stored_hash = user["password_hash"]
@@ -73,10 +70,10 @@ class AuthScreen(Screen):
             stored_hash = stored_hash.encode("utf-8")
 
         if not bcrypt.checkpw(password.encode("utf-8"), stored_hash):
-            error_label.update("Invalid username or password.")
+            self.notify("Invalid username or password.", severity="error")
             return
 
-        error_label.update("")
+        self.notify(f"Welcome back, {username}!", severity="information")
         self.app.set_current_user(user)
         self.app.push_screen("dashboard")
 
@@ -84,29 +81,32 @@ class AuthScreen(Screen):
         company_name = self.query_one("#signup-company", Input).value.strip()
         username = self.query_one("#signup-username", Input).value.strip()
         password = self.query_one("#signup-password", Input).value
-        error_label = self.query_one("#signup-error", Label)
 
         if not company_name or not username or not password:
-            error_label.update("Please fill in all fields.")
+            self.notify("Please fill in all fields.", severity="error")
             return
 
         existing_user = self.app.db.fetch_user_by_username(username)
         if existing_user is not None:
-            error_label.update("Username already taken.")
+            self.notify("Username already taken.", severity="error")
             return
 
         password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
-        company_id = self.app.db.insert_company(name=company_name)
-        self.app.db.insert_user(
-            username=username,
-            password_hash=password_hash,
-            company_id=company_id,
-        )
+        try:
+            company_id = self.app.db.insert_company(name=company_name)
+            self.app.db.insert_user(
+                username=username,
+                password_hash=password_hash,
+                company_id=company_id,
+            )
+        except Exception as e:
+            self.notify(f"Signup failed: {e}", severity="error")
+            return
 
         user = self.app.db.fetch_user_by_username(username)
 
-        error_label.update("")
+        self.notify("Account created successfully!", severity="information")
         self.app.current_company_name = company_name
         self.app.set_current_user(user)
         self.app.push_screen("onboarding")
