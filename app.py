@@ -52,11 +52,7 @@ class RootCFOApp(App):
         Uses log() for audit messages. If either service fails, the user still lands
         on the auth screen with a visible audit note — we don't crash the whole app.
         """
-        if self._theme_mode == "dark":
-            self.theme = self.dark_theme
-        else:
-            self.theme = self.light_theme
-
+        
         self.db = DatabaseManager()
         try:
             self.db.connect()
