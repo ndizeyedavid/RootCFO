@@ -1,7 +1,4 @@
-"""David: RootCFOApp — main Textual application class.
-
-Registers all screens, holds shared DB/AI instances, defines global CSS theme.
-"""
+"""David: RootCFOApp — main Textual application class."""
 
 from textual.app import App
 
@@ -14,7 +11,7 @@ from screens.report import ReportScreen
 
 
 class RootCFOApp(App):
-    """David: Implement — register SCREENS dict, on_mount(), global CSS."""
+    """Main RootCFO application."""
 
     CSS_PATH = "styles.tcss"
 
@@ -34,5 +31,21 @@ class RootCFOApp(App):
         self.current_user = None
 
     def on_mount(self):
-        """David: init DatabaseManager + connect, init AIForensic, push auth screen."""
-        pass
+        """Initialize services and open authentication screen."""
+        from services.db import DatabaseManager
+
+        self.db = DatabaseManager()
+
+        try:
+            self.db.connect()
+        except Exception as error:
+            self.notify(
+                f"Database connection failed: {error}",
+                severity="error",
+            )
+
+        self.push_screen("auth")
+
+
+if __name__ == "__main__":
+    RootCFOApp().run()
