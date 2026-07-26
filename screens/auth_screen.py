@@ -1,4 +1,3 @@
-
 import bcrypt
 from textual.app import ComposeResult
 from textual.screen import Screen
@@ -7,6 +6,8 @@ from textual.containers import Vertical
 
 
 class AuthScreen(Screen):
+
+    def compose(self) -> ComposeResult:
         yield Header()
         with TabbedContent():
             with TabPane("Login", id="login-tab"):
@@ -37,7 +38,7 @@ class AuthScreen(Screen):
         elif event.button.id == "signup-button":
             self._handle_signup()
 
-    def _handle_login(self)-> None:
+    def _handle_login(self) -> None:
         username = self.query_one("#login-username", Input).value.strip()
         password = self.query_one("#login-password", Input).value
         error_label = self.query_one("#login-error", Label)
@@ -51,7 +52,7 @@ class AuthScreen(Screen):
             error_label.update("Invalid username or password.")
             return
 
-        stored_hash = user.password_hash
+        stored_hash = user["password_hash"]
         if isinstance(stored_hash, str):
             stored_hash = stored_hash.encode("utf-8")
 
@@ -60,11 +61,10 @@ class AuthScreen(Screen):
             return
 
         error_label.update("")
-        self.app.current_user = user
+        self.app.set_current_user(user)
         self.app.push_screen("dashboard")
-        
 
-    def _handle_signup(self)-> None:
+    def _handle_signup(self) -> None:
         company_name = self.query_one("#signup-company", Input).value.strip()
         username = self.query_one("#signup-username", Input).value.strip()
         password = self.query_one("#signup-password", Input).value
@@ -83,14 +83,14 @@ class AuthScreen(Screen):
 
         company_id = self.app.db.insert_company(name=company_name)
         user_id = self.app.db.insert_user(
-            company_id=company_id,
             username=username,
             password_hash=password_hash,
-            role="admin",
+            company_id=company_id,
         )
 
+        user = self.app.db.fetch_user_by_username(username)
+
         error_label.update("")
-        self.app.current_user_id = user_id
-        self.app.current_company_id = company_id
+        self.app.current_company_name = company_name
+        self.app.set_current_user(user)
         self.app.push_screen("onboarding")
-        
