@@ -1,16 +1,22 @@
-"""Bruce: User and Company dataclasses."""
 
 from dataclasses import dataclass
 from typing import Optional
-
+from datetime import datetime
 
 @dataclass
 class Company:
-    """Bruce: Add fields: id, name, contact_email, address, business_hours, created_at"""
-    pass
-
+    id: Optional[int]
+    name: str
+    contact_email: str
+    address: str
+    business_hours: str
+    created_at: Optional[datetime] = None
 
 @dataclass
 class User:
-    """Bruce: Add fields: id, company_id, username, password_hash, role, created_at"""
-    pass
+    id: Optional[int]
+    company_id: int
+    username: str
+    password_hash: str
+    role: str
+    created_at: Optional[datetime] = None
