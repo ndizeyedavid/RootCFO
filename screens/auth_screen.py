@@ -1,14 +1,30 @@
 import bcrypt
+from pathlib import Path
 from textual.app import ComposeResult
 from textual.screen import Screen
-from textual.widgets import Header, Footer, Input, Button, Label, TabbedContent, TabPane
-from textual.containers import Vertical
+from textual.widgets import Header, Footer, Input, Button, Label, TabbedContent, TabPane, Markdown
+from textual.containers import Vertical, Horizontal
+
+
+_LOGO_PATH = Path(__file__).resolve().parent.parent / "assets" / "logo.txt"
+
+
+def _load_logo_markdown() -> str:
+    try:
+        raw = _LOGO_PATH.read_text(encoding="utf-8").rstrip()
+    except OSError:
+        raw = "RootCFO"
+    return "```\n" + raw + "\n```"
 
 
 class AuthScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield Header()
+        yield Horizontal(
+            Markdown(_load_logo_markdown(), id="auth-logo"),
+            id="auth-logo-wrap",
+        )
         with TabbedContent():
             with TabPane("Login", id="login-tab"):
                 yield Vertical(
@@ -82,7 +98,7 @@ class AuthScreen(Screen):
         password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
         company_id = self.app.db.insert_company(name=company_name)
-        user_id = self.app.db.insert_user(
+        self.app.db.insert_user(
             username=username,
             password_hash=password_hash,
             company_id=company_id,
