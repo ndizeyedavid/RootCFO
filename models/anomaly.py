@@ -23,7 +23,7 @@ class AnomalyType(Enum):
 
 @dataclass
 class Anomaly:
-     id: Optional[int]
+    id: Optional[int]
     company_id: int
     transaction_id: int
     anomaly_type: str
@@ -36,7 +36,7 @@ class Anomaly:
         if self.flagged_at is None:
             self.flagged_at = datetime.now()
 
-      @property
+    @property
     def severity_enum(self) -> Severity:
         return Severity(self.severity)
     @property
