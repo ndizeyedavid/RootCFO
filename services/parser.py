@@ -23,11 +23,11 @@ class FileParser:
             return "csv"
         if ext == ".json":
             return "json"
-    raise ParserError(f"File is empty: {filepath}")
+        raise ParserError(f"File is empty: {filepath}")
 
     @staticmethod
     def validate_columns(df: pd.DataFrame):
-         normalized = {str(col).strip().lower(): col for col in df.columns}
+        normalized = {str(col).strip().lower(): col for col in df.columns}
         missing = [
             col for col in FileParser.REQUIRED_COLUMNS
             if col.lower() not in normalized
@@ -44,7 +44,7 @@ class FileParser:
 
     @staticmethod
     def parse(filepath: str) -> list[Transaction]:
-         path = Path(filepath)
+        path = Path(filepath)
         if not path.exists():
             raise ParserError(f"File not found: {filepath}")
  
@@ -53,9 +53,9 @@ class FileParser:
  
         file_format = FileParser.detect_format(filepath)
         try:
-    transactions = FileParser.parse(filepath)
-except ParserError as e:
-    print(e)
+            transactions = FileParser.parse(filepath)
+        except ParserError as e:
+            print(e)
 
         try:
             if file_format == "csv":
