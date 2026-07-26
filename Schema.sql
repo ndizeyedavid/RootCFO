@@ -2,6 +2,7 @@
 -- Active: 1784281163654@@mysql-168a8dfe-alustudent-5968.b.aivencloud.com@17422@defaultdb
 -- Create the database
 -- Create database
+
 CREATE DATABASE IF NOT EXISTS rootcfo;
 
 -- Select database
@@ -62,3 +63,6 @@ CREATE TABLE IF NOT EXISTS anomalies (
     FOREIGN KEY (company_id) REFERENCES companies (id) ON DELETE CASCADE,
     FOREIGN KEY (transaction_id) REFERENCES transactions (id) ON DELETE SET NULL
 );
+
+SHOW TABLES;
+
