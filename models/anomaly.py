@@ -1,6 +1,7 @@
 """Elyse: Anomaly dataclass + severity/type enums."""
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Optional
 from enum import Enum
 

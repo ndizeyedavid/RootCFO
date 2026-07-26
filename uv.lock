@@ -1084,7 +1084,7 @@ wheels = [
 
 [[package]]
 name = "rootcfo"
-version = "1.0.0"
+version = "0.0.1"
 source = { virtual = "." }
 dependencies = [
     { name = "bcrypt" },
@@ -1099,13 +1099,13 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "bcrypt" },
+    { name = "bcrypt", specifier = "==5.0.0" },
     { name = "dotenv", specifier = ">=0.9.9" },
-    { name = "groq" },
-    { name = "mysql-connector-python" },
-    { name = "pandas" },
-    { name = "python-dotenv" },
-    { name = "textual" },
+    { name = "groq", specifier = "==1.5.0" },
+    { name = "mysql-connector-python", specifier = "==9.7.0" },
+    { name = "pandas", specifier = "==3.0.3" },
+    { name = "python-dotenv", specifier = "==1.2.2" },
+    { name = "textual", specifier = "==8.2.8" },
     { name = "textual-dev", specifier = ">=1.8.0" },
 ]
 

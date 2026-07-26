@@ -23,7 +23,7 @@ class FileParser:
             return "csv"
         if ext == ".json":
             return "json"
-    raise ParserError(f"File is empty: {filepath}")
+        raise ParserError(f"File is empty: {filepath}")
 
     @staticmethod
     def validate_columns(df: pd.DataFrame):
