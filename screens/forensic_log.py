@@ -35,8 +35,8 @@ def _sort_key(value):
     return value
 
 
-class ForensicLogScreen(Screen):
-    """Calvin: Shows all anomalies in sortable DataTable.
+class ForensicLogPane(Vertical):
+    """Calvin: Embeddable anomaly list. Shows all anomalies in sortable DataTable.
 
     Columns: Date, Description, Amount, Type, Severity
     Color coding: critical (red), warning (yellow), info (blue) — applied
@@ -48,51 +48,44 @@ class ForensicLogScreen(Screen):
     """
 
     DEFAULT_CSS = """
-    ForensicLogScreen #forensic-log-title {
+    ForensicLogPane {
+        height: 1fr;
+    }
+
+    ForensicLogPane #forensic-log-title {
         padding: 1 2 0 2;
         text-style: bold;
     }
 
-    ForensicLogScreen #anomaly-table {
+    ForensicLogPane #anomaly-table {
         height: 1fr;
     }
 
-    ForensicLogScreen #empty-state {
+    ForensicLogPane #empty-state {
         padding: 2;
         color: $text-muted;
         display: none;
     }
 
-    ForensicLogScreen #empty-state.-visible {
+    ForensicLogPane #empty-state.-visible {
         display: block;
     }
     """
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         # Tracks ascending/descending toggle state per column for click-to-sort.
         self._sort_reverse: dict = {}
 
     def compose(self) -> ComposeResult:
-        # Calvin: Header + Label + DataTable + Footer
-        yield Header()
-        with Vertical():
-            with Horizontal():
-                yield Button("\u2190 Back to Dashboard", id="back-dashboard", variant="default")
-                yield Static("", classes="spacer")
-                yield Label("Forensic Log", id="forensic-log-title")
-            yield Label(
-                "No anomalies found for this company.",
-                id="empty-state",
-            )
-            yield DataTable(id="anomaly-table", cursor_type="row")
-        yield Footer()
-
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        bid = event.button.id or ""
-        if bid == "back-dashboard":
-            self.app.switch_screen("dashboard")
+        # Calvin: Title row + empty-state Label + sortable DataTable.
+        with Horizontal():
+            yield Label("Forensic Log", id="forensic-log-title")
+        yield Label(
+            "No anomalies found for this company. Ingest a ledger via Ledger Ingestion to populate.",
+            id="empty-state",
+        )
+        yield DataTable(id="anomaly-table", cursor_type="row")
 
     def on_mount(self) -> None:
         # Calvin: add columns to DataTable, fetch anomalies from DB, populate rows with style classes
@@ -175,6 +168,8 @@ class ForensicLogScreen(Screen):
         empty state) if that isn't wired up yet, rather than crashing.
         """
         user = getattr(self.app, "current_user", None)
+        if isinstance(user, dict):
+            return user.get("company_id")
         return getattr(user, "company_id", None)
 
     def _populate_table(self, rows: list) -> None:
@@ -232,3 +227,16 @@ class ForensicLogScreen(Screen):
         from screens.report import ReportScreen
 
         self.app.push_screen(ReportScreen(anomaly_id=anomaly_id))
+
+
+class ForensicLogScreen(Screen):
+    """Calvin: Standalone screen wrapper around ForensicLogPane."""
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        yield ForensicLogPane()
+        yield Footer()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "back-dashboard":
+            self.app.switch_screen("dashboard")

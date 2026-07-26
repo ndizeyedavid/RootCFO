@@ -1,4 +1,4 @@
-"""Juliana: File import screen — upload CSV/JSON, run full pipeline."""
+"""Juliana: File import component (used inside dashboard) + standalone screen."""
 
 from textual.app import ComposeResult
 from textual.screen import Screen
@@ -6,10 +6,10 @@ from textual.widgets import Header, Footer, Input, Button, Label, RichLog, Stati
 from textual.containers import Vertical, Horizontal
 
 
-class IngestionScreen(Screen):
-    """Juliana: User provides file path, clicks Import.
+class IngestionPane(Vertical):
+    """Juliana: Embeddable ledger import component.
 
-    Pipeline (all in _handle_import):
+    Pipeline (stubbed in _handle_import):
       1. FileParser.parse(filepath) → list[Transaction]
       2. db.insert_transactions(company_id, transactions)
       3. AnomalyDetector.analyze_all(transactions, business_hours) → list[Anomaly]
@@ -18,38 +18,49 @@ class IngestionScreen(Screen):
       6. db.update_anomaly_analyses(anomalies)
       7. Show summary counts in status label
 
-    Use: self.app.db, self.app.ai, self.app.current_user
+    Accesses: self.app.db, self.app.ai, self.app.current_user
+    """
+
+    DEFAULT_CSS = """
+    IngestionPane {
+        height: 1fr;
+    }
+    IngestionPane #ingestion-title {
+        padding: 1 2 0 2;
+        text-style: bold;
+    }
+    IngestionPane #ingestion-filepath,
+    IngestionPane #ingestion-import {
+        margin: 0 2;
+    }
+    IngestionPane #ingestion-status {
+        margin: 1 2 0 2;
+    }
+    IngestionPane Label {
+        margin: 1 2 0 2;
+    }
+    IngestionPane #ingestion-log {
+        margin: 1 2;
+        border: solid $primary;
+        height: 1fr;
+    }
     """
 
     def compose(self) -> ComposeResult:
-        yield Header()
-        with Vertical():
-            with Horizontal():
-                yield Button("← Back to Dashboard", id="back-dashboard", variant="default")
-            # Juliana: file path Input + Import Button + status Static + log RichLog
-            yield Label("Ledger Ingestion", classes="placeholder-title")
-            yield Label("File path to CSV/JSON ledger export:")
-            yield Input(placeholder="/path/to/transactions.csv", id="ingestion-filepath")
-            with Horizontal():
-                yield Button("Import & Run Pipeline", id="ingestion-import", variant="primary")
-            yield Static("", id="ingestion-status")
-            yield Label("Import Log:")
-            yield RichLog(id="ingestion-log", wrap=True, markup=True, auto_scroll=True)
-        yield Footer()
+        yield Label("Ledger Ingestion", id="ingestion-title")
+        yield Label("File path to CSV/JSON ledger export:")
+        yield Input(placeholder="/path/to/transactions.csv", id="ingestion-filepath")
+        with Horizontal():
+            yield Button("Import & Run Pipeline", id="ingestion-import", variant="primary")
+        yield Static("", id="ingestion-status")
+        yield Label("Import Log:")
+        yield RichLog(id="ingestion-log", wrap=True, markup=True, auto_scroll=True)
 
     def on_button_pressed(self, event: Button.Pressed):
-        bid = event.button.id or ""
-        if bid == "back-dashboard":
-            self.app.switch_screen("dashboard")
-            return
-        if bid == "ingestion-import":
+        if event.button.id == "ingestion-import":
             self._handle_import()
 
     def _handle_import(self):
-        # Juliana: implement the full 7-step pipeline
-        # Wrap everything in try/except
-        # Log each step to RichLog
-        # Show final summary in status label
         filepath = self.query_one("#ingestion-filepath", Input).value.strip()
         status = self.query_one("#ingestion-status", Static)
         log = self.query_one("#ingestion-log", RichLog)
@@ -60,8 +71,21 @@ class IngestionScreen(Screen):
         log.write(f"[b]Import requested:[/b] {filepath}")
         log.write("[i]Pipeline stub — 7-step flow: parse → insert txns → detect → insert anomalies → AI analyze → persist analysis → summarize[/i]")
         self.notify(
-            "Ingestion pipeline logic in this screen is a placeholder scaffold. "
+            "Ingestion pipeline logic in this component is a placeholder scaffold. "
             "Wire FileParser / AnomalyDetector / AIForensic calls here when ready.",
             title="Scaffold only",
             severity="information",
         )
+
+
+class IngestionScreen(Screen):
+    """Juliana: Standalone screen wrapper around IngestionPane."""
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        yield IngestionPane()
+        yield Footer()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "back-dashboard":
+            self.app.switch_screen("dashboard")

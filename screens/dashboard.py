@@ -1,4 +1,4 @@
-"""David: Master dashboard — sidebar navigation + screen switcher + audit console."""
+"""David: Master dashboard — sidebar navigation + content switcher + audit console."""
 
 from typing import Optional
 
@@ -11,8 +11,13 @@ from textual.widgets import (
     RichLog,
     Static,
     Label,
+    ContentSwitcher,
 )
 from textual.containers import VerticalScroll, Vertical, Container
+
+from screens.forensic_log import ForensicLogPane
+from screens.ingestion import IngestionPane
+from screens.settings import SettingsPane
 
 
 SIDEBAR_BUTTONS = [
@@ -24,19 +29,19 @@ SIDEBAR_BUTTONS = [
 
 
 class DashboardScreen(Screen):
-    """David: Main navigation hub.
+    """David: Main navigation hub. Everything loads in the same screen.
 
     Layout:
-      [Sidebar (width=24)]  |  [Main Content Pane]
-      [  Dashboard      ]   |  Sidebar buttons either
-      [  Ledger Ingest ]   |  show an embedded tab
-      [  Forensic Log   ]   |  (dashboard/settings) or
-      [  Settings       ]   |  switch_screen() to a
-      [                              ]   full registered screen
-      [  Audit Console (RichLog)     ]   (ingestion/forensic_log).
+      [Sidebar (width=24)]  |  [Content Switcher pane   ]
+      [  Dashboard      ]   |    Dashboard / IngestionPane
+      [  Ledger Ingest ]   |    / ForensicLogPane / SettingsPane
+      [  Forensic Log   ]   |
+      [  Settings       ]   |
+      [                                    ]
+      [  Audit Console (RichLog)           ]
 
-    Return nav: IngestionScreen / ForensicLogScreen each have a
-    "Back to Dashboard" button that calls app.switch_screen("dashboard").
+    Sidebar clicks → switch ContentSwitcher.current → the correct pane
+    shows in place, no screen push/switch, audit console stays visible.
     """
 
     def __init__(self, initial_tab: Optional[str] = None):
@@ -55,22 +60,19 @@ class DashboardScreen(Screen):
                     yield Button(label, id=f"nav-{button_id}", classes="nav-btn")
 
             with Container(id="content-pane"):
-                with Vertical(id="dashboard"):
-                    yield Static("Audit Overview", classes="placeholder-title")
-                    yield Static(
-                        "Welcome to RootCFO. Use the sidebar to navigate.\n"
-                        "• Ledger Ingestion — import CSV/JSON and run the pipeline\n"
-                        "• Forensic Log   — review flagged anomalies\n"
-                        "• Settings       — configure preferences",
-                        classes="placeholder-body",
-                    )
-                with Vertical(id="settings"):
-                    yield Static("Settings", classes="placeholder-title")
-                    yield Static(
-                        "Settings module placeholder.\n"
-                        "Business hours, API keys, and theme options live here.",
-                        classes="placeholder-body",
-                    )
+                with ContentSwitcher(initial=self._initial_tab, id="content-switcher"):
+                    with Vertical(id="dashboard"):
+                        yield Static("Audit Overview", classes="placeholder-title")
+                        yield Static(
+                            "Welcome to RootCFO. Use the sidebar to navigate.\n"
+                            "• Ledger Ingestion — import CSV/JSON and run the pipeline\n"
+                            "• Forensic Log   — review flagged anomalies\n"
+                            "• Settings       — configure preferences",
+                            classes="placeholder-body",
+                        )
+                    yield IngestionPane(id="ingestion")
+                    yield ForensicLogPane(id="forensic_log")
+                    yield SettingsPane(id="settings")
 
         with Container(id="audit-console"):
             yield Label("Audit Console", id="audit-label")
@@ -86,7 +88,6 @@ class DashboardScreen(Screen):
     def on_mount(self) -> None:
         self._current_tab = self._initial_tab
         self._update_active_button(self._initial_tab)
-        self._set_embedded_tab_visibility(self._initial_tab)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         btn_id = event.button.id or ""
@@ -96,44 +97,20 @@ class DashboardScreen(Screen):
         self._navigate_to(target, event.button.label)
 
     def _navigate_to(self, target: str, label_text: str) -> None:
-        # Embedded tabs handled within this screen (keep audit console visible)
-        if target in ("dashboard", "settings"):
-            self._current_tab = target
-            self._update_active_button(target)
-            self._set_embedded_tab_visibility(target)
-            self.write_audit(f"Switched to [b]{label_text}[/b]")
-            return
-
-        # Full registered screens: ingestion / forensic_log / any future ones.
-        installed_screens = getattr(self.app, "SCREENS", {})
-        if target not in installed_screens:
+        switcher = self.query_one("#content-switcher", ContentSwitcher)
+        # Only allow targets that exist as children of the ContentSwitcher.
+        child_ids = {child.id for child in switcher.children}
+        if target not in child_ids:
             self.notify(
-                f"Screen '{target}' is not registered yet.",
-                title="Not implemented",
-                severity="warning",
-            )
-            return
-
-        self._current_tab = target
-        self._update_active_button(target)
-        self.write_audit(f"Switched to [b]{label_text}[/b]")
-        try:
-            self.app.switch_screen(target)
-        except Exception as e:
-            self.notify(
-                f"Could not open {label_text}: {e}",
+                f"No pane for '{target}' is mounted in the switcher.",
                 title="Navigation failed",
                 severity="error",
             )
-
-    def _set_embedded_tab_visibility(self, active_tab: str) -> None:
-        """Show only the active embedded pane inside #content-pane."""
-        for pane_id in ("dashboard", "settings"):
-            try:
-                pane = self.query_one(f"#{pane_id}", Vertical)
-            except Exception:
-                continue
-            pane.display = (pane_id == active_tab)
+            return
+        self._current_tab = target
+        switcher.current = target
+        self._update_active_button(target)
+        self.write_audit(f"Switched to [b]{label_text}[/b]")
 
     def _update_active_button(self, active_id: str) -> None:
         all_buttons = self.query(".nav-btn")
