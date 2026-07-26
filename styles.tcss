@@ -1,3 +1,34 @@
+App {
+    color: $text;
+    background: $surface;
+}
+Screen {
+    background: $surface;
+}
+Header {
+    background: $primary;
+    color: $text;
+    text-style: bold;
+}
+Footer {
+    background: $panel;
+    color: $text-muted;
+}
+Button:focus {
+    text-style: bold;
+}
+RichLog {
+    padding: 0 1;
+}
+#audit-log .--info {
+    color: $success;
+}
+#audit-log .--warn {
+    color: $warning;
+}
+#audit-log .--crit {
+    color: $error;
+}
 DashboardScreen {
     layout: vertical;
 }
