@@ -4,7 +4,10 @@ ARCHIVE_DIR="archive"
 TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
 ARCHIVE_NAME="reports_$TIMESTAMP.tar.gz"
 
-mkdir -p "$ARCHIVE_DIR"
+if [ ! -d "archive" ]; then
+    echo "Archive Directory is missing. Creating it instead"
+    mkdir -p "$ARCHIVE_DIR"
+fi
 
 if ! ls *.csv >/dev/null 2>&1; then
     echo "No CSV reports found."
