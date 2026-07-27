@@ -75,7 +75,8 @@ class AuthScreen(Screen):
 
         self.notify(f"Welcome back, {username}!", severity="information")
         self.app.set_current_user(user)
-        self.app.push_screen("dashboard")
+        from screens.dashboard import DashboardScreen
+        self.app.switch_screen(DashboardScreen())
 
     def _handle_signup(self) -> None:
         company_name = self.query_one("#signup-company", Input).value.strip()

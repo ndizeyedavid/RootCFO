@@ -9,6 +9,7 @@ Two classes:
 """
 
 import csv
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -18,7 +19,7 @@ from textual import work
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
-from textual.widgets import Button, DataTable, Footer, Header, Label
+from textual.widgets import Button, DataTable, Footer, Header, Input, Label
 
 from services.db import DatabaseError
 
@@ -88,6 +89,17 @@ class ForensicLogPane(Vertical):
     ForensicLogPane #report-btn {
         width: 20;
     }
+    ForensicLogPane #search-row {
+        height: auto;
+        margin-bottom: 1;
+    }
+    ForensicLogPane #search-input {
+        width: 1fr;
+    }
+    ForensicLogPane #search-clear {
+        width: 10;
+        margin-left: 1;
+    }
     ForensicLogPane #anomaly-table {
         height: 1fr;
     }
@@ -103,13 +115,16 @@ class ForensicLogPane(Vertical):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Tracks ascending/descending toggle state per column for click-to-sort.
         self._sort_reverse: dict = {}
+        self._all_rows: list = []
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="forensic-header"):
             yield Label("Forensic Log", id="forensic-log-title")
             yield Button("Create Report", id="report-btn", variant="default")
+        with Horizontal(id="search-row"):
+            yield Input(placeholder="Search anomalies (use * as wildcard)...", id="search-input")
+            yield Button("Clear", id="search-clear", variant="default")
         yield Label(
             "No anomalies found for this company. "
             "Ingest a ledger via Ledger Ingestion to populate.",
@@ -190,11 +205,23 @@ class ForensicLogPane(Vertical):
 
     # ── UI rendering helpers (must run on the UI thread) ──────────────
     def _populate_table(self, rows: list) -> None:
+        self._all_rows = rows
+        self._apply_filter()
+
+    def _apply_filter(self) -> None:
+        inp = self.query_one("#search-input", Input)
+        pattern = (inp.value or "").strip()
         table = self.query_one("#anomaly-table", DataTable)
         table.clear()
         self._show_empty_state(False)
 
-        for anomaly, transaction in rows:
+        filtered = self._filter_rows(self._all_rows, pattern) if pattern else self._all_rows
+
+        if not filtered:
+            self._show_empty_state(True)
+            return
+
+        for anomaly, transaction in filtered:
             date_value = transaction.get("date") if transaction else None
             amount_value = transaction.get("amount") if transaction else None
             raw_desc = anomaly.get("description") or "(no description)"
@@ -231,6 +258,39 @@ class ForensicLogPane(Vertical):
         table = self.query_one("#anomaly-table", DataTable)
         empty_label.set_class(visible, "-visible")
         table.display = not visible
+
+    def _filter_rows(self, rows: list, pattern: str) -> list:
+        try:
+            regex = re.compile(
+                re.escape(pattern).replace(r"\*", ".*").replace(r"\?", "."),
+                re.IGNORECASE,
+            )
+        except re.error:
+            return rows
+
+        def _search_text(anomaly: dict, transaction: dict | None) -> str:
+            parts = [
+                str(anomaly.get("description", "")),
+                str(anomaly.get("anomaly_type", "")),
+                str(anomaly.get("severity", "")),
+            ]
+            if transaction:
+                parts.extend([
+                    str(transaction.get("description", "")),
+                    str(transaction.get("person", "")),
+                    str(transaction.get("account", "")),
+                ])
+            return " ".join(parts)
+
+        return [(a, t) for a, t in rows if regex.search(_search_text(a, t))]
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id == "search-input":
+            self._apply_filter()
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        if event.input.id == "search-input":
+            self._apply_filter()
 
     def refresh_data(self) -> None:
         """Public helper: other screens (e.g. IngestionPane post-import)
@@ -332,6 +392,10 @@ class ForensicLogPane(Vertical):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "report-btn":
             self._generate_report()
+        elif event.button.id == "search-clear":
+            inp = self.query_one("#search-input", Input)
+            inp.value = ""
+            self._apply_filter()
 
     def on_data_table_header_selected(self, event: DataTable.HeaderSelected) -> None:
         ascending = not self._sort_reverse.get(event.column_key, False)

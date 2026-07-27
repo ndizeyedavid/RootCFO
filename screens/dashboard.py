@@ -41,6 +41,15 @@ SIDEBAR_BUTTONS = [
     ("settings", "Settings"),
 ]
 
+_ADMIN_ONLY = {"ingestion"}
+
+
+def _role(app) -> str:
+    user = getattr(app, "current_user", None)
+    if isinstance(user, dict):
+        return user.get("role", "viewer")
+    return getattr(user, "role", "viewer")
+
 _SEP = "\u2500" * 50
 
 
@@ -395,6 +404,7 @@ class DashboardScreen(Screen):
                 yield Label("NAVIGATION", id="sidebar-title")
                 for button_id, label in SIDEBAR_BUTTONS:
                     yield Button(label, id=f"nav-{button_id}", classes="nav-btn")
+                yield Button("Logout", id="nav-logout", classes="nav-btn logout-btn")
 
             with Container(id="content-pane"):
                 with ContentSwitcher(initial=self._initial_tab, id="content-switcher"):
@@ -417,9 +427,25 @@ class DashboardScreen(Screen):
     def on_mount(self) -> None:
         self._current_tab = self._initial_tab
         self._update_active_button(self._initial_tab)
+        self._apply_role_visibility()
+
+    def _apply_role_visibility(self) -> None:
+        role = _role(self.app)
+        for btn_id in _ADMIN_ONLY:
+            try:
+                btn = self.query_one(f"#nav-{btn_id}", Button)
+                btn.display = role == "admin"
+            except Exception:
+                pass
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         btn_id = event.button.id or ""
+        if btn_id == "nav-logout":
+            self.app.current_user = None
+            self.app.current_company_id = None
+            from screens.auth_screen import AuthScreen
+            self.app.switch_screen(AuthScreen())
+            return
         if not btn_id.startswith("nav-"):
             return
         target = btn_id[len("nav-"):]

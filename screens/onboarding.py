@@ -56,4 +56,5 @@ class OnboardingScreen(Screen):
         self.app.db.update_company(company_id, data_dict)
  
         error_label.update("")
-        self.app.push_screen("dashboard")
+        from screens.dashboard import DashboardScreen
+        self.app.switch_screen(DashboardScreen())

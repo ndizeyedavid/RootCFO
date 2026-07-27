@@ -51,6 +51,20 @@ DashboardScreen {
   color: $text;
   text-style: bold;
 }
+#sidebar .logout-btn {
+  width: 100%;
+  margin: 1 1 0 1;
+  dock: bottom;
+  color: $text-muted;
+}
+#sidebar .logout-btn:hover {
+  color: $error;
+  text-style: bold;
+}
+#sidebar .logout-btn:focus {
+  color: $error;
+  text-style: bold;
+}
 #sidebar-title {
   padding: 1 2;
   text-style: bold;
