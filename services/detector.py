@@ -10,6 +10,42 @@ from models.transaction import Transaction
 class AnomalyDetector:
     """Detect suspicious transactions using simple statistical checks."""
 
+    DEFAULT_BUSINESS_HOURS = "Mon-Fri 09:00-17:00"
+    DEFAULT_AMOUNT_THRESHOLD = 10000.0
+
+    def analyze_all(
+        self,
+        transactions: list[Transaction],
+        business_hours: str | None = None,
+        amount_threshold: float | None = None,
+    ) -> list[Anomaly]:
+        """Run all detectors and return combined deduplicated anomaly list.
+
+        Args:
+            transactions: list of Transaction objects (MUST have .id populated).
+            business_hours: "Mon-Fri 09:00-17:00" style string or None for default.
+            amount_threshold: dollar threshold above which to flag, or None for default.
+        """
+        bh = business_hours or self.DEFAULT_BUSINESS_HOURS
+        threshold = amount_threshold if amount_threshold is not None else self.DEFAULT_AMOUNT_THRESHOLD
+
+        seen: set[tuple[int, str]] = set()
+        combined: list[Anomaly] = []
+        sources = [
+            self.find_duplicates(transactions),
+            self.find_off_hours(transactions, bh),
+            self.threshold_breaker(transactions, threshold),
+            self.benfords_test(transactions),
+        ]
+        for bucket in sources:
+            for anomaly in bucket:
+                key = (anomaly.transaction_id, anomaly.anomaly_type)
+                if key in seen:
+                    continue
+                seen.add(key)
+                combined.append(anomaly)
+        return combined
+
     def find_duplicates(self, transactions: list[Transaction]) -> list[Anomaly]:
         """Flag transactions that share the same description and amount."""
         anomalies = []

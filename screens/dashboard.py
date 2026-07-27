@@ -1,22 +1,38 @@
-"""David: Master dashboard — sidebar navigation + content switcher + audit console."""
+"""David: Master dashboard — sidebar navigation + content switcher + audit console.
+
+The sidebar drives a ``ContentSwitcher(id="content-switcher")`` with four
+real embedded panes (no screen switching, no placeholders):
+
+  * #dashboard      -> overview Static (TODO handover §3.4: real summary cards)
+  * #ingestion      -> IngestionPane(id="ingestion")
+  * #forensic_log   -> ForensicLogPane(id="forensic_log")
+  * #settings       -> SettingsPane(id="settings")
+
+Textual 8.2.8 quirks fixed:
+  * ``query()`` takes 1 arg only (the selector). Use ``query(selector)`` then
+    ``isinstance`` checks. ``query_one(selector, Type)`` still takes 2 args.
+  * DashboardScreen.__init__ forwards ``*args, **kwargs`` so Textual can pass
+    ``id=``, ``name=``, ``classes=`` at mount time.
+"""
 
 from typing import Optional
 
 from textual.app import ComposeResult
 from textual.screen import Screen
 from textual.widgets import (
-    Header,
-    Footer,
     Button,
-    RichLog,
     ContentSwitcher,
-    Static,
+    Footer,
+    Header,
     Label,
+    RichLog,
+    Static,
 )
-from textual.containers import VerticalScroll, Horizontal, Vertical, Container
+from textual.containers import Container, Vertical, VerticalScroll
 
-from screens.ingestion import IngestionScreen
-from screens.forensic_log import ForensicLogScreen
+from screens.forensic_log import ForensicLogPane
+from screens.ingestion import IngestionPane
+from screens.settings import SettingsPane
 
 SIDEBAR_BUTTONS = [
     ("dashboard", "Dashboard"),
@@ -25,26 +41,23 @@ SIDEBAR_BUTTONS = [
     ("settings", "Settings"),
 ]
 
-BUTTON_TO_CONTENT = {bid: cid for bid, _ in SIDEBAR_BUTTONS for cid in [bid]}
-
 
 class DashboardScreen(Screen):
     """David: Main navigation hub.
 
-    Layout:
-      [Sidebar (width=24)]  |  [Main Content Pane]
-      [  Dashboard      ]   |  ContentSwitcher shows
-      [  Ledger Ingestion]   |  different views based
-      [  Forensic Log    ]   |  on sidebar selection
-      [  Settings        ]   |
+    Layout::
+
+      [Sidebar (w=24)]   |   [Main Content Pane]
+      [  Dashboard     ]   |   ContentSwitcher shows different
+      [  Ledger Ingest.]   |   views based on sidebar selection.
+      [  Forensic Log  ]   |
+      [  Settings      ]   |
       [                              ]
       [  Audit Console (RichLog)     ]
-
-    Sidebar buttons switch content via ContentSwitcher.current.
     """
 
-    def __init__(self, initial_tab: Optional[str] = None):
-        super().__init__()
+    def __init__(self, initial_tab: Optional[str] = None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._initial_tab = initial_tab or "dashboard"
         self._current_tab: Optional[str] = None
 
@@ -69,27 +82,9 @@ class DashboardScreen(Screen):
                             "• Settings       — configure preferences",
                             classes="placeholder-body",
                         )
-                    with Vertical(id="ingestion"):
-                        yield Static("Ledger Ingestion", classes="placeholder-title")
-                        yield Static(
-                            "Ingestion module placeholder.\n"
-                            "Integrates with the full IngestionScreen when ready.",
-                            classes="placeholder-body",
-                        )
-                    with Vertical(id="forensic_log"):
-                        yield Static("Forensic Log", classes="placeholder-title")
-                        yield Static(
-                            "Anomaly review module placeholder.\n"
-                            "Integrates with ForensicLogScreen when ready.",
-                            classes="placeholder-body",
-                        )
-                    with Vertical(id="settings"):
-                        yield Static("Settings", classes="placeholder-title")
-                        yield Static(
-                            "Settings module placeholder.\n"
-                            "Business hours, API keys, and theme options live here.",
-                            classes="placeholder-body",
-                        )
+                    yield IngestionPane(id="ingestion")
+                    yield ForensicLogPane(id="forensic_log")
+                    yield SettingsPane(id="settings")
 
         with Container(id="audit-console"):
             yield Label("Audit Console", id="audit-label")
@@ -103,31 +98,50 @@ class DashboardScreen(Screen):
         yield Footer()
 
     def on_mount(self) -> None:
-        # self._update_active_button(self._initial_tab)
         self._current_tab = self._initial_tab
+        self._update_active_button(self._initial_tab)
 
+    # ── Navigation ────────────────────────────────────────────────────
     def on_button_pressed(self, event: Button.Pressed) -> None:
         btn_id = event.button.id or ""
         if not btn_id.startswith("nav-"):
             return
         target = btn_id[len("nav-"):]
         switcher = self.query_one("#content-switcher", ContentSwitcher)
-        if target in switcher.children:
+        # Validate target is a registered child id of the switcher.
+        child_ids = {getattr(child, "id", None) for child in switcher.children}
+        if target in child_ids:
             switcher.current = target
             self._update_active_button(target)
             self._current_tab = target
             self.write_audit(f"Switched to [b]{event.button.label}[/b]")
 
-    def _update_active_button(self, active_id: str) -> None:
-        all_buttons = self.query(".nav-btn", Button)
-        for btn in all_buttons:
-            btn.remove_class("-active")
-        target = self.query_one(f"#nav-{active_id}", Button) if active_id else None
-        if target is not None:
-            target.add_class("-active")
+            # Post-switch side-effects: refresh data when user enters Forensic Log.
+            if target == "forensic_log":
+                try:
+                    pane = self.query_one("#forensic_log", ForensicLogPane)
+                    pane.refresh_data()
+                except Exception:
+                    pass
 
+    def _update_active_button(self, active_id: str) -> None:
+        # Textual 8.2.8: query() takes ONLY the selector string (1 arg).
+        # query() returns a DOMQuery; iterate it and filter by isinstance.
+        all_buttons = self.query(".nav-btn")
+        for node in all_buttons:
+            if isinstance(node, Button):
+                node.remove_class("-active")
+        if active_id:
+            try:
+                target = self.query_one(f"#nav-{active_id}", Button)
+            except Exception:
+                target = None
+            if target is not None:
+                target.add_class("-active")
+
+    # ── Audit console helper ──────────────────────────────────────────
     def write_audit(self, message: str) -> None:
-        """David: helper to append message to the audit console RichLog."""
+        """Append message to the bottom audit-console RichLog."""
         try:
             audit_log = self.query_one("#audit-log", RichLog)
         except Exception:

@@ -1,11 +1,21 @@
-"""Calvin: Color-coded anomaly table with clickable rows."""
+"""Calvin: Color-coded anomaly table with clickable rows.
+
+Two classes:
+
+* ``ForensicLogPane(Vertical)`` — reusable, embeddable inside a ContentSwitcher
+  on the dashboard. Expects to be mounted with ``ForensicLogPane(id="forensic_log")``.
+* ``ForensicLogScreen(Screen)`` — thin standalone wrapper with Header/Footer kept
+  for backwards compatibility (``push_screen("forensic_log")`` still works).
+"""
+
+from typing import Optional
 
 from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
 from textual.containers import Vertical
 from textual.screen import Screen
-from textual.widgets import DataTable, Footer, Header, Label
+from textual.widgets import Button, DataTable, Footer, Header, Label
 
 from services.db import DatabaseError
 
@@ -17,7 +27,7 @@ SEVERITY_STYLES = {
 
 
 def _sort_key(value):
-    """Calvin: normalize a cell value for sorting.
+    """Normalize a cell value for sorting.
 
     Text cells (used for the color-coded Severity column) are reduced to
     their plain string. Currency-formatted Amount cells ("$1,234.56") are
@@ -35,115 +45,123 @@ def _sort_key(value):
     return value
 
 
-class ForensicLogScreen(Screen):
-    """Calvin: Shows all anomalies in sortable DataTable.
+def _resolve_company_id(app) -> Optional[int]:
+    """Resolve current company_id from app.current_user.
 
-    Columns: Date, Description, Amount, Type, Severity
-    Color coding: critical (red), warning (yellow), info (blue) — applied
-    per-cell via rich.text.Text, since DataTable rows don't support CSS
-    classes the way other widgets do.
-    Click a row -> push ReportScreen with anomaly_id.
+    Handles both the dict-shape ``self.app.current_user`` set by the auth
+    flow via ``set_current_user`` **and** a class-shape User instance so
+    the pane works regardless of how the auth layer evolves.
+    """
+    user = getattr(app, "current_user", None)
+    if user is None:
+        return None
+    if isinstance(user, dict):
+        return user.get("company_id")
+    return getattr(user, "company_id", None)
 
-    Use: self.app.db.fetch_anomalies(company_id), self.app.db.fetch_transaction()
+
+class ForensicLogPane(Vertical):
+    """Calvin: Embeddable anomaly list — sortable DataTable + empty state.
+
+    Mount on a dashboard ContentSwitcher as::
+
+        ForensicLogPane(id="forensic_log")
     """
 
     DEFAULT_CSS = """
-    ForensicLogScreen #forensic-log-title {
-        padding: 1 2 0 2;
-        text-style: bold;
+    ForensicLogPane {
+        height: 1fr;
+        padding: 1 2;
     }
-
-    ForensicLogScreen #anomaly-table {
+    ForensicLogPane #forensic-log-title {
+        text-style: bold;
+        color: $primary;
+        padding: 0 0 1 0;
+    }
+    ForensicLogPane #anomaly-table {
         height: 1fr;
     }
-
-    ForensicLogScreen #empty-state {
+    ForensicLogPane #empty-state {
         padding: 2;
         color: $text-muted;
         display: none;
     }
-
-    ForensicLogScreen #empty-state.-visible {
+    ForensicLogPane #empty-state.-visible {
         display: block;
     }
     """
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         # Tracks ascending/descending toggle state per column for click-to-sort.
         self._sort_reverse: dict = {}
 
     def compose(self) -> ComposeResult:
-        # Calvin: Header + Label + DataTable + Footer
-        yield Header()
-        with Vertical():
-            yield Label("Forensic Log", id="forensic-log-title")
-            yield Label(
-                "No anomalies found for this company.",
-                id="empty-state",
-            )
-            yield DataTable(id="anomaly-table", cursor_type="row")
-        yield Footer()
+        yield Label("Forensic Log", id="forensic-log-title")
+        yield Label(
+            "No anomalies found for this company. "
+            "Ingest a ledger via Ledger Ingestion to populate.",
+            id="empty-state",
+        )
+        yield DataTable(id="anomaly-table", cursor_type="row")
 
     def on_mount(self) -> None:
-        # Calvin: add columns to DataTable, fetch anomalies from DB, populate rows with style classes
         table = self.query_one("#anomaly-table", DataTable)
         table.add_columns("Date", "Description", "Amount", "Type", "Severity")
         self._load_anomalies()
 
+    # ── Background worker ──────────────────────────────────────────────
     @work(thread=True, exclusive=True)
     def _load_anomalies(self) -> None:
-        """Calvin: fetch anomalies + related transactions off the UI thread.
+        """Fetch anomalies + related transactions off the UI thread.
 
-        Runs in a worker thread since mysql-connector is a blocking client;
-        this keeps the UI responsive while the query is in flight.
+        mysql-connector is a blocking client; running this in a worker
+        keeps the TUI responsive while the query is in flight.
         """
-        self.app.call_from_thread(setattr, self, "loading", True)
+        self._call_thread(setattr, self, "loading", True)
 
-        db = self.app.db
+        db = getattr(self.app, "db", None)
         if db is None:
-            self.app.call_from_thread(
+            self._call_thread(
                 self.notify,
                 "Database is not connected. Please try again shortly.",
                 title="Connection error",
                 severity="error",
             )
-            self.app.call_from_thread(setattr, self, "loading", False)
+            self._call_thread(setattr, self, "loading", False)
             return
 
-        company_id = self._resolve_company_id()
+        company_id = _resolve_company_id(self.app)
         if company_id is None:
-            self.app.call_from_thread(
+            self._call_thread(
                 self.notify,
                 "No company is associated with the current session.",
                 title="Missing company context",
                 severity="warning",
             )
-            self.app.call_from_thread(setattr, self, "loading", False)
-            self.app.call_from_thread(self._show_empty_state, True)
+            self._call_thread(setattr, self, "loading", False)
+            self._call_thread(self._show_empty_state, True)
             return
 
         try:
             anomalies = db.fetch_anomalies(company_id)
         except DatabaseError as exc:
-            self.app.call_from_thread(
+            self._call_thread(
                 self.notify,
                 f"Could not load anomalies: {exc}",
                 title="Database error",
                 severity="error",
             )
-            self.app.call_from_thread(setattr, self, "loading", False)
+            self._call_thread(setattr, self, "loading", False)
             return
 
         if not anomalies:
-            self.app.call_from_thread(setattr, self, "loading", False)
-            self.app.call_from_thread(self._show_empty_state, True)
+            self._call_thread(setattr, self, "loading", False)
+            self._call_thread(self._show_empty_state, True)
             return
 
-        # Fetch each anomaly's related transaction for Date/Amount.
-        # NOTE: this is one query per anomaly (db.py has no batch-fetch-by-ids
-        # method yet) -- fine for a demo dataset, but worth revisiting with a
-        # fetch_transactions(ids=...) helper if the anomaly count grows large.
+        # NOTE: one DB fetch per anomaly (N+1). db.py already has a comment
+        # flagging this; add fetch_transactions(ids=...) later for scale.
         rows = []
         for anomaly in anomalies:
             transaction = None
@@ -155,21 +173,11 @@ class ForensicLogScreen(Screen):
                     transaction = None
             rows.append((anomaly, transaction))
 
-        self.app.call_from_thread(self._populate_table, rows)
-        self.app.call_from_thread(setattr, self, "loading", False)
+        self._call_thread(self._populate_table, rows)
+        self._call_thread(setattr, self, "loading", False)
 
-    def _resolve_company_id(self):
-        """Calvin: resolve current company_id from app.current_user.
-
-        Depends on Bruce's auth flow setting self.app.current_user to a
-        User with a .company_id attribute. Returns None (triggering the
-        empty state) if that isn't wired up yet, rather than crashing.
-        """
-        user = getattr(self.app, "current_user", None)
-        return getattr(user, "company_id", None)
-
+    # ── UI rendering helpers (must run on the UI thread) ──────────────
     def _populate_table(self, rows: list) -> None:
-        """Calvin: clear + repopulate the DataTable (must run on the UI thread)."""
         table = self.query_one("#anomaly-table", DataTable)
         table.clear()
         self._show_empty_state(False)
@@ -181,8 +189,19 @@ class ForensicLogScreen(Screen):
             anomaly_type = anomaly.get("anomaly_type") or "unknown"
             severity = (anomaly.get("severity") or "info").lower()
 
-            date_text = date_value.isoformat() if hasattr(date_value, "isoformat") else "—"
-            amount_text = f"${float(amount_value):,.2f}" if amount_value is not None else "—"
+            if hasattr(date_value, "isoformat"):
+                date_text = date_value.isoformat()
+            elif date_value is not None:
+                date_text = str(date_value)
+            else:
+                date_text = "—"
+            if amount_value is not None:
+                try:
+                    amount_text = f"${float(amount_value):,.2f}"
+                except (TypeError, ValueError):
+                    amount_text = str(amount_value)
+            else:
+                amount_text = "—"
 
             style = SEVERITY_STYLES.get(severity, "")
             row = (
@@ -195,20 +214,23 @@ class ForensicLogScreen(Screen):
             table.add_row(*row, key=str(anomaly.get("id")))
 
     def _show_empty_state(self, visible: bool) -> None:
-        """Calvin: toggle the empty-state message and table visibility."""
         empty_label = self.query_one("#empty-state", Label)
         table = self.query_one("#anomaly-table", DataTable)
         empty_label.set_class(visible, "-visible")
         table.display = not visible
 
+    def refresh_data(self) -> None:
+        """Public helper: other screens (e.g. IngestionPane post-import)
+        can call this to re-pull anomalies after new data lands."""
+        self._load_anomalies()
+
+    # ── Event handlers ─────────────────────────────────────────────────
     def on_data_table_header_selected(self, event: DataTable.HeaderSelected) -> None:
-        """Calvin: click a column header to sort by it, toggling asc/desc."""
         ascending = not self._sort_reverse.get(event.column_key, False)
         event.data_table.sort(event.column_key, key=_sort_key, reverse=not ascending)
         self._sort_reverse[event.column_key] = ascending
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
-        # Calvin: extract anomaly_id from row key, push "report" screen with it
         anomaly_id_raw = event.row_key.value
         if anomaly_id_raw is None:
             return
@@ -218,8 +240,45 @@ class ForensicLogScreen(Screen):
         except (TypeError, ValueError):
             return
 
-        # Importing here (rather than at module level) avoids a circular
-        # import, since report.py doesn't need to import this module back.
+        # Lazy import avoids circular dependency (report.py does not import us).
         from screens.report import ReportScreen
 
         self.app.push_screen(ReportScreen(anomaly_id=anomaly_id))
+
+    # ── Cross-thread UI helper ─────────────────────────────────────────
+    def _call_thread(self, fn, *args, **kwargs) -> None:
+        try:
+            self.app.call_from_thread(fn, *args, **kwargs)
+        except Exception:
+            pass
+
+
+class ForensicLogScreen(Screen):
+    """Calvin: Thin standalone screen wrapper — Header + ForensicLogPane + Footer.
+
+    Kept for backwards compat (``push_screen("forensic_log")``). When the
+    dashboard embeds ``ForensicLogPane`` directly this code path is not
+    used, but it is harmless and gives a clean "fullscreen mode" escape
+    hatch later if needed.
+    """
+
+    DEFAULT_CSS = """
+    ForensicLogScreen .back-btn {
+        dock: right;
+        margin: 0 1;
+    }
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._pane: Optional[ForensicLogPane] = None
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        self._pane = ForensicLogPane(id="forensic_log")
+        yield self._pane
+        yield Footer()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:  # noqa: F821
+        if event.button.id == "back-dashboard":
+            self.app.switch_screen("dashboard")

@@ -155,7 +155,11 @@ class DatabaseManager:
 
     # ── Transactions ────────────────────────────────────────────
     def insert_transactions(self, company_id: int, transactions: list) -> list[int]:
-        """Batch insert, return list of inserted ids."""
+        """Batch insert, return list of inserted ids.
+
+        Accepts Transaction dataclasses OR plain dicts so both pipeline and
+        ad-hoc callers work. Values are extracted via getattr with dict fallback.
+        """
         ids = []
 
         query = """
@@ -164,16 +168,24 @@ class DatabaseManager:
         VALUES (%s,%s,%s,%s,%s,%s,%s)
         """
 
+        def _pick(obj, key, default=None):
+            val = getattr(obj, key, None)
+            if val is not None:
+                return val
+            if isinstance(obj, dict):
+                return obj.get(key, default)
+            return default
+
         for transaction in transactions:
 
             values = (
                 company_id,
-                transaction.get("date"),
-                transaction.get("description"),
-                transaction.get("amount"),
-                transaction.get("account"),
-                transaction.get("person"),
-                transaction.get("source_file")
+                _pick(transaction, "date"),
+                _pick(transaction, "description"),
+                _pick(transaction, "amount"),
+                _pick(transaction, "account"),
+                _pick(transaction, "person"),
+                _pick(transaction, "source_file")
             )
 
             ids.append(
@@ -269,18 +281,31 @@ class DatabaseManager:
         )
 
     def update_anomaly_analyses(self, anomalies: list):
-        """Batch update AI analysis for multiple anomalies."""
+        """Batch update AI analysis for multiple anomalies.
+
+        Accepts Anomaly dataclasses (reads .ai_analysis, .id) OR dicts
+        (reads ["ai_analysis"], ["id"]) so both pipeline and ad-hoc callers work.
+        """
         query = """
         UPDATE anomalies
         SET ai_analysis = %s
         WHERE id = %s
         """
 
+        def _pick(obj, key, default=None):
+            val = getattr(obj, key, None)
+            if val is not None:
+                return val
+            if isinstance(obj, dict):
+                return obj.get(key, default)
+            return default
+
         for anomaly in anomalies:
+            aid = _pick(anomaly, "id")
+            analysis = _pick(anomaly, "ai_analysis")
+            if aid is None or analysis is None:
+                continue
             self.execute_query(
                 query,
-                (
-                    anomaly["ai_analysis"],
-                    anomaly["id"]
-                )
+                (analysis, aid)
             )

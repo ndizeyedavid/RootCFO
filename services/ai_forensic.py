@@ -94,6 +94,50 @@ class AIForensic:
 
         return content
 
+    def analyze_and_assign(
+        self,
+        anomalies: list[Anomaly],
+        transactions: list[Transaction],
+    ) -> tuple[bool, str]:
+        """Convenience wrapper: run analyze() and write result onto each anomaly.
+
+        This produces one aggregate forensic narrative for the whole flagged set,
+        then attaches that narrative as the ``ai_analysis`` attribute of every
+        anomaly in the input list (so the report screen can surface it even for
+        individual rows).
+
+        If the AI service is unavailable (no API key, network error, etc.) the
+        method does **not** raise; instead it writes a short human-readable
+        explanation onto each anomaly and returns ``(False, reason)`` so the
+        caller can continue with the rest of the pipeline.
+
+        Returns:
+            Tuple of ``(success: bool, summary_message: str)``.
+        """
+        if not anomalies:
+            return True, "No anomalies to analyze."
+
+        if self.client is None:
+            fallback = (
+                "AI forensic analysis not available — Groq API key not configured. "
+                "Set GROQ_API_KEY in your .env file to enable AI audit narratives."
+            )
+            for a in anomalies:
+                a.ai_analysis = fallback
+            return False, fallback
+
+        try:
+            narrative = self.analyze(anomalies, transactions)
+        except APIError as exc:
+            fallback = f"AI forensic analysis skipped — {exc}"
+            for a in anomalies:
+                a.ai_analysis = fallback
+            return False, fallback
+
+        for a in anomalies:
+            a.ai_analysis = narrative
+        return True, narrative
+
     def chat(self, history: list[dict], question: str) -> str:
         """David: append question to history → call Groq → return response.
 
