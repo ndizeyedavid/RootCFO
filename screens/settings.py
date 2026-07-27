@@ -1,4 +1,3 @@
-"""Settings screen — profile editor + viewer user management."""
 
 from typing import Optional
 
@@ -11,7 +10,6 @@ from textual.widgets import Button, Header, Input, Label, ListView, ListItem, St
 
 
 class SettingsPane(Vertical):
-    """Embeddable settings pane with Profile + Viewer Users sections."""
 
     DEFAULT_CSS = """
     SettingsPane {
@@ -312,7 +310,6 @@ class SettingsPane(Vertical):
 
 
 class SettingsScreen(Screen):
-    """Standalone wrapper for push_screen usage."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

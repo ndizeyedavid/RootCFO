@@ -1,7 +1,3 @@
-"""Calvin: AI forensic report + follow-up chat.
-
-Redesigned 2026-07-27 v3 — opencode-style chat interface.
-"""
 
 from functools import partial
 from pathlib import Path
@@ -23,11 +19,17 @@ from services.db import DatabaseError, DatabaseManager
 
 
 _SYSTEM_CHAT_INTRO = (
-    "You are a forensic accounting AI assistant. You are helping an auditor "
-    "investigate a specific flagged anomaly. You have full context of the anomaly, "
-    "its related transaction, the account involved, and the person responsible. "
-    "Answer follow-up questions concisely, grounded in the data provided below. "
-    "Do not invent data that was not provided."
+    "You are a senior forensic accounting AI assistant in an interactive chat. "
+    "An auditor is investigating a specific flagged anomaly and has full context "
+    "in front of them — the anomaly details, the related transaction, the account, "
+    "and the person responsible. The initial forensic briefing was already provided "
+    "above. Now the auditor is asking follow-up questions.\n\n"
+    "Answer each question concisely and precisely. Ground your answers in the "
+    "data provided. If asked about specific people, accounts, or amounts, refer "
+    "to them directly. If you don't have enough information to answer fully, "
+    "say so and suggest what additional data the auditor should look up. "
+    "Do not invent data. Be helpful, direct, and think like a real forensic "
+    "accountant assisting on a live investigation."
 )
 
 
@@ -59,7 +61,6 @@ _SEP = "\u2500" * 60
 
 
 class ReportPane(Vertical):
-    """Embeddable chat-style forensic report pane."""
 
     DEFAULT_CSS = """
     ReportPane {

@@ -1,5 +1,3 @@
-"""Priscilla: MySQL database connection and CRUD operations."""
-
 import threading
 
 import mysql.connector
@@ -12,12 +10,6 @@ class DatabaseError(Exception):
 
 
 class DatabaseManager:
-    """Priscilla: Implements all methods below.
-
-    Thread-safe — each thread gets its own connection so concurrent
-    Textual workers (pipeline, dashboard, forensic log) don't step on
-    each other's cursor mid-query.
-    """
 
     def __init__(self):
         self._local = threading.local()
@@ -40,7 +32,7 @@ class DatabaseManager:
         self._local.cursor = value
 
     def connect(self):
-        """Close old connection, establish fresh MySQL connection."""
+       
         self._close_quietly()
         try:
             self.connection = mysql.connector.connect(
@@ -57,7 +49,6 @@ class DatabaseManager:
             raise DatabaseError(f"Database connection failed: {e}")
 
     def _close_quietly(self):
-        """Close cursor and connection without raising."""
         try:
             if self.cursor:
                 self.cursor.close()
@@ -72,12 +63,10 @@ class DatabaseManager:
         self.connection = None
 
     def disconnect(self):
-        """Close cursor and connection."""
         self._close_quietly()
 
     # ── Generic query helpers ───────────────────────────────────
     def _run(self, method: str, query: str, params: tuple = None):
-        """Execute a query with automatic reconnect on connection loss."""
         for attempt in range(2):
             self.connect()
             try:
@@ -95,15 +84,12 @@ class DatabaseManager:
                 raise DatabaseError(f"{method} failed: {e}")
 
     def execute_query(self, query: str, params: tuple = None):
-        """Execute INSERT/UPDATE/DELETE with params, commit."""
         return self._run("execute", query, params)
 
     def fetch_all(self, query: str, params: tuple = None) -> list:
-        """Return all rows as list of dicts."""
         return self._run("fetch_all", query, params)
 
     def fetch_one(self, query: str, params: tuple = None) -> dict:
-        """Return single row as dict."""
         return self._run("fetch_one", query, params)
 
 
@@ -121,7 +107,6 @@ class DatabaseManager:
         )
 
     def update_user(self, user_id: int, data: dict):
-        """Update user fields from dict."""
         fields = []
         values = []
 
@@ -203,11 +188,6 @@ class DatabaseManager:
 
     # ── Transactions ────────────────────────────────────────────
     def insert_transactions(self, company_id: int, transactions: list) -> list[int]:
-        """Batch insert, return list of inserted ids.
-
-        Accepts Transaction dataclasses OR plain dicts so both pipeline and
-        ad-hoc callers work. Values are extracted via getattr with dict fallback.
-        """
         ids = []
 
         query = """

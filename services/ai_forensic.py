@@ -1,17 +1,4 @@
-"""David: Groq LLM integration — forensic analysis and follow-up chat.
 
-Changes 2026-07-27: chunked AI analysis to avoid Groq 413 / TPM errors.
-- ``analyze`` now splits anomalies into token-budgeted chunks, calls Groq
-  for each chunk, and returns the concatenated report.
-- ``analyze_and_assign`` writes both the aggregate report AND a
-  per-chunk "narrow" narrative onto each anomaly's ``ai_analysis`` field
-  so individual rows still show relevant context rather than the giant
-  whole-run report.
-- Prompt payload per chunk is compressed (no per-txn full ``to_dict``;
-  only id/date/amount/account/description) to stay under token budget.
-- Default chunk size is 50 anomalies per call (≈2.5–3k context + system
-  prompt ≈ well under llama-3.1-8b-instant 6k TPM window).
-"""
 
 import json
 import math
@@ -32,7 +19,6 @@ from utils.config import Config
 
 
 class APIError(Exception):
-    """David: raise when Groq API call fails."""
     pass
 
 
@@ -46,26 +32,27 @@ DEFAULT_ANOMALIES_PER_CHUNK = 20
 DEFAULT_INTER_CHUNK_DELAY_SECONDS = 2.0  # simple pacing to stay under TPM cap
 
 SYSTEM_PROMPT = (
-    "You are a senior forensic accountant auditing a batch of flagged financial "
-    "transactions. Your job for THIS BATCH is to produce a concise, structured "
-    "forensic narrative covering: (1) what each anomaly in this batch means in "
-    "plain business language, (2) the level of risk (low/medium/high) and why, "
-    "(3) recommended next steps for the auditor (verify receipt, contact vendor, "
-    "cross-check ledger entries, etc.). Mention patterns you see within this "
-    "batch. Do not invent data that is not provided. Be concise but thorough."
+    "You are a senior forensic accounting AI assistant helping an auditor "
+    "investigate flagged anomalies. You are given one or a small batch of "
+    "anomalies, each with its related transaction and the person responsible. "
+    "For each anomaly, produce a concise but thorough forensic briefing:\n"
+    "(1) what makes this transaction suspicious in plain language,\n"
+    "(2) the specific risk it poses and why,\n"
+    "(3) recommended next steps for the auditor (verify receipt, contact the "
+    "person/vendor, cross-check ledger entries, review approvals, etc.).\n"
+    "Reference the person, account, and amount where relevant. If you spot "
+    "patterns across multiple anomalies in the batch, mention them. "
+    "Be conversational, direct, and actionable — the auditor will follow up "
+    "with questions. Do not invent data that was not provided."
 )
 
 
 class AIForensic:
-    """David: Groq-powered forensic analysis and follow-up chat."""
 
     def __init__(self, api_key: Optional[str] = None, model: str = DEFAULT_MODEL,
                  anomalies_per_chunk: int = DEFAULT_ANOMALIES_PER_CHUNK,
                  inter_chunk_delay: float = DEFAULT_INTER_CHUNK_DELAY_SECONDS):
-        """David: init Groq client with api_key (falls back to Config.GROQ_API_KEY).
 
-        If no key is available, client is set to None and calls will raise APIError.
-        """
         resolved_key = api_key if api_key is not None else Config.GROQ_API_KEY
         self.model = model
         self.temperature = DEFAULT_TEMPERATURE
@@ -81,7 +68,7 @@ class AIForensic:
     # ── Public API ────────────────────────────────────────────────────
     def analyze(self, anomalies: list[Anomaly],
                 transactions: list[Transaction]) -> str:
-        """Run chunked Groq analysis and return the concatenated report."""
+        
         if not anomalies:
             return "No anomalies provided for analysis."
 
@@ -211,7 +198,6 @@ class AIForensic:
         return all_ok, aggregate_report
 
     def chat(self, history: list[dict], question: str) -> str:
-        """Append question to history → call Groq → return response text."""
         if not question.strip():
             return ""
 
