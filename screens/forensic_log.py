@@ -13,7 +13,7 @@ from typing import Optional
 from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
-from textual.containers import Vertical
+from textual.containers import Vertical, Horizontal
 from textual.screen import Screen
 from textual.widgets import Button, DataTable, Footer, Header, Label
 
@@ -91,6 +91,8 @@ class ForensicLogPane(Vertical):
     }
     """
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Tracks ascending/descending toggle state per column for click-to-sort.

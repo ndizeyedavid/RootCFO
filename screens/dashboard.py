@@ -43,8 +43,9 @@ SIDEBAR_BUTTONS = [
 
 
 class DashboardScreen(Screen):
-    """David: Main navigation hub.
+    """David: Main navigation hub. Everything loads in the same screen.
 
+<<<<<<< HEAD
     Layout::
 
       [Sidebar (w=24)]   |   [Main Content Pane]
@@ -54,6 +55,19 @@ class DashboardScreen(Screen):
       [  Settings      ]   |
       [                              ]
       [  Audit Console (RichLog)     ]
+=======
+    Layout:
+      [Sidebar (width=24)]  |  [Content Switcher pane   ]
+      [  Dashboard      ]   |    Dashboard / IngestionPane
+      [  Ledger Ingest ]   |    / ForensicLogPane / SettingsPane
+      [  Forensic Log   ]   |
+      [  Settings       ]   |
+      [                                    ]
+      [  Audit Console (RichLog)           ]
+
+    Sidebar clicks → switch ContentSwitcher.current → the correct pane
+    shows in place, no screen push/switch, audit console stays visible.
+>>>>>>> 13bd0c7c235305c2ef4d66cb0e66aecc4616b3be
     """
 
     def __init__(self, initial_tab: Optional[str] = None, *args, **kwargs):
@@ -107,6 +121,9 @@ class DashboardScreen(Screen):
         if not btn_id.startswith("nav-"):
             return
         target = btn_id[len("nav-"):]
+        self._navigate_to(target, event.button.label)
+
+    def _navigate_to(self, target: str, label_text: str) -> None:
         switcher = self.query_one("#content-switcher", ContentSwitcher)
         # Validate target is a registered child id of the switcher.
         child_ids = {getattr(child, "id", None) for child in switcher.children}

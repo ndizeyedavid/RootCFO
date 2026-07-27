@@ -17,6 +17,8 @@ from pathlib import Path
 from typing import Optional
 
 from textual import work
+"""Juliana: File import component (used inside dashboard) + standalone screen."""
+
 from textual.app import ComposeResult
 from textual.containers import Vertical, Horizontal
 from textual.screen import Screen
