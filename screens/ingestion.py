@@ -26,6 +26,7 @@ from textual.widgets import (
     Header,
     Input,
     Label,
+    ProgressBar,
     Static,
 )
 
@@ -92,6 +93,10 @@ class IngestionPane(Vertical):
         margin-left: 1;
         min-width: 16;
     }
+    IngestionPane #import-progress {
+        width: 1fr;
+        margin: 0 0 1 0;
+    }
     IngestionPane #ingestion-status {
         padding: 0 1;
         color: $text-muted;
@@ -123,6 +128,7 @@ class IngestionPane(Vertical):
                 id="file-path",
             )
             yield Button("Import", id="import-btn", variant="primary")
+        yield ProgressBar(id="import-progress", total=100, show_eta=False)
         yield Static(
             "",
             id="ingestion-status",
@@ -159,6 +165,7 @@ class IngestionPane(Vertical):
             return
         start_msg = f"Starting import of [b]{Path(path).name}[/b] ..."
         self._update_status(start_msg)
+        self._update_progress(0)
         self._audit(start_msg, "info")
         self._run_pipeline(path)
 
@@ -197,12 +204,14 @@ class IngestionPane(Vertical):
 
             # ── Step 1: parse ─────────────────────────────────────
             self._audit_thread(f"[1/7] Parsing [b]{filepath.name}[/b] ...", "info")
+            self._call_thread(self._update_progress, 5)
             transactions: list[Transaction] = FileParser.parse(
                 str(filepath),
                 company_id=company_id,
                 source_file=filepath.name,
             )
             counts["parsed"] = len(transactions)
+            self._call_thread(self._update_progress, 15)
             self._audit_thread(
                 f"[1/7] Parsed [green]{counts['parsed']}[/green] transactions from {filepath.name}.",
                 "info",
@@ -224,6 +233,7 @@ class IngestionPane(Vertical):
             for txn, new_id in zip(transactions, inserted_ids):
                 if new_id:
                     txn.id = new_id
+            self._call_thread(self._update_progress, 30)
             self._audit_thread(
                 f"[2/7] Inserted [green]{counts['inserted_txns']}[/green] transactions.",
                 "info",
@@ -238,6 +248,7 @@ class IngestionPane(Vertical):
                 transactions, business_hours=bh
             )
             counts["anomalies"] = len(anomalies)
+            self._call_thread(self._update_progress, 45)
             level = "info" if counts["anomalies"] == 0 else "warn"
             self._audit_thread(
                 f"[3/7] Detected [yellow]{counts['anomalies']}[/yellow] anomalies.",
@@ -255,11 +266,13 @@ class IngestionPane(Vertical):
                 for a, new_id in zip(anomalies, anomaly_ids):
                     if new_id:
                         a.id = new_id
+                self._call_thread(self._update_progress, 55)
                 self._audit_thread(
                     f"[4/7] Inserted [green]{counts['inserted_anomalies']}[/green] anomalies.",
                     "info",
                 )
             else:
+                self._call_thread(self._update_progress, 55)
                 self._audit_thread(
                     "[4/7] No anomalies — nothing to insert.",
                     "info",
@@ -274,16 +287,19 @@ class IngestionPane(Vertical):
                             "AI analysis skipped — AIForensic client not loaded."
                         )
                     counts["ai_ok"] = False
+                    self._call_thread(self._update_progress, 90)
                     self._audit_thread(
                         "[5/7] AI not available — writing placeholder.",
                         "warn",
                     )
                 else:
+                    self._call_thread(self._update_progress, 60)
                     self._audit_thread(
                         "[5/7] Calling AI forensic analysis (this may take a few seconds) ...",
                         "info",
                     )
                     ai_ok, ai_summary = ai.analyze_and_assign(anomalies, transactions)
+                    self._call_thread(self._update_progress, 90)
                     counts["ai_ok"] = ai_ok
                     if ai_ok:
                         self._audit_thread(
@@ -300,6 +316,7 @@ class IngestionPane(Vertical):
                     "info",
                 )
                 db.update_anomaly_analyses(anomalies)
+                self._call_thread(self._update_progress, 95)
                 self._audit_thread("[6/7] Analyses persisted.", "info")
             else:
                 self._audit_thread(
@@ -313,6 +330,7 @@ class IngestionPane(Vertical):
                 counts["ai_ok"] = True
 
             # ── Step 7: summary ──────────────────────────────────
+            self._call_thread(self._update_progress, 100)
             ok = True
 
         except ParserError as e:
@@ -342,9 +360,8 @@ class IngestionPane(Vertical):
                     f"{counts['anomalies']} anomalies.",
                     severity=sev,
                 )
-                # Kick the forensic pane's refresh so results show up next time
-                # the user visits the Forensic Log tab.
                 self._request_forensic_refresh()
+                self._request_dashboard_refresh()
             else:
                 self._call_thread(
                     self.notify,
@@ -372,17 +389,26 @@ class IngestionPane(Vertical):
         return "  ".join(parts)
 
     def _request_forensic_refresh(self) -> None:
-        """Best-effort: tell the sibling ForensicLogPane to refresh its data.
-
-        Uses the dashboard's installed query_one; if the pane cannot be found
-        (e.g. standalone IngestionScreen) this is a silent no-op.
-        """
         try:
             from screens.forensic_log import ForensicLogPane
         except Exception:
             return
         try:
             pane = self.app.query_one("#forensic_log", ForensicLogPane)
+        except Exception:
+            return
+        try:
+            pane.refresh_data()
+        except Exception:
+            pass
+
+    def _request_dashboard_refresh(self) -> None:
+        try:
+            from screens.dashboard import DashboardPane
+        except Exception:
+            return
+        try:
+            pane = self.app.query_one("#dashboard", DashboardPane)
         except Exception:
             return
         try:
@@ -403,6 +429,12 @@ class IngestionPane(Vertical):
     def _update_status(self, message: str) -> None:
         try:
             self.query_one("#ingestion-status", Static).update(message)
+        except Exception:
+            pass
+
+    def _update_progress(self, value: float) -> None:
+        try:
+            self.query_one("#import-progress", ProgressBar).progress = value
         except Exception:
             pass
 

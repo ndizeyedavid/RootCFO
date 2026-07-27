@@ -30,7 +30,7 @@ def _sort_key(value):
     """Normalize a cell value for sorting.
 
     Text cells (used for the color-coded Severity column) are reduced to
-    their plain string. Currency-formatted Amount cells ("$1,234.56") are
+    their plain string. Currency-formatted Amount cells ("RWF 1,234.56") are
     parsed back to a float so they sort numerically instead of
     lexicographically. Everything else (Date is stored ISO-formatted, so
     it already sorts correctly as a string) is left as-is.

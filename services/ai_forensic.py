@@ -42,7 +42,7 @@ DEFAULT_TEMPERATURE = 0.2
 # Chunking knobs. Conservative defaults for llama-3.1-8b-instant on-demand
 # tier (6 000 TPM): each chunk call ≈ system prompt (500) + context (2500) +
 # response (1500) ≈ 4500 tokens, well under 6k window per minute.
-DEFAULT_ANOMALIES_PER_CHUNK = 50
+DEFAULT_ANOMALIES_PER_CHUNK = 20
 DEFAULT_INTER_CHUNK_DELAY_SECONDS = 2.0  # simple pacing to stay under TPM cap
 
 SYSTEM_PROMPT = (

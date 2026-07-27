@@ -62,7 +62,7 @@ DashboardScreen {
   padding: 0 1;
 }
 #audit-console {
-  height: 12;
+  height: 7;
   border-top: solid $primary;
   background: $surface;
   margin: 0;

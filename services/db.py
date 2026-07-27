@@ -18,89 +18,115 @@ class DatabaseManager:
 
     # ── Connection ──────────────────────────────────────────────
     def connect(self):
-        """Establish MySQL connection using Config values."""
+        """Close old connection, establish fresh MySQL connection."""
+        self._close_quietly()
         try:
             self.connection = mysql.connector.connect(
                 host=Config.DB_HOST,
                 port=Config.DB_PORT,
                 user=Config.DB_USER,
                 password=Config.DB_PASSWORD,
-                database=Config.DB_NAME
+                database=Config.DB_NAME,
+                autocommit=True,
+                connection_timeout=5,
             )
-
-            self.cursor = self.connection.cursor(dictionary=True)
-
+            self.cursor = self.connection.cursor(dictionary=True, buffered=True)
         except Error as e:
             raise DatabaseError(f"Database connection failed: {e}")
 
-
+    def _close_quietly(self):
+        """Close cursor and connection without raising."""
+        try:
+            if self.cursor:
+                self.cursor.close()
+        except Exception:
+            pass
+        try:
+            if self.connection:
+                self.connection.close()
+        except Exception:
+            pass
+        self.cursor = None
+        self.connection = None
 
     def disconnect(self):
         """Close cursor and connection."""
-        if self.cursor:
-            self.cursor.close()
-
-        if self.connection:
-            self.connection.close()
-
+        self._close_quietly()
 
     # ── Generic query helpers ───────────────────────────────────
+    def _run(self, method: str, query: str, params: tuple = None):
+        """Execute a query with automatic reconnect on connection loss."""
+        for attempt in range(2):
+            self.connect()
+            try:
+                self.cursor.execute(query, params)
+                if method == "execute":
+                    return self.cursor.lastrowid
+                if method == "fetch_one":
+                    return self.cursor.fetchone()
+                return self.cursor.fetchall()
+            except Error as e:
+                msg = str(e)
+                is_lost = any(k in msg for k in ("2013", "2006", "Lost connection", "gone away"))
+                if attempt == 0 and is_lost:
+                    continue
+                raise DatabaseError(f"{method} failed: {e}")
+
     def execute_query(self, query: str, params: tuple = None):
         """Execute INSERT/UPDATE/DELETE with params, commit."""
-        try:
-            if not self.connection:
-                self.connect()
-
-            self.cursor.execute(query, params)
-            self.connection.commit()
-
-            return self.cursor.lastrowid
-
-        except Error as e:
-            if self.connection:
-                self.connection.rollback()
-            raise DatabaseError(f"Query failed: {e}")
-
+        return self._run("execute", query, params)
 
     def fetch_all(self, query: str, params: tuple = None) -> list:
         """Return all rows as list of dicts."""
-        try:
-            if not self.connection:
-                self.connect()
-
-            self.cursor.execute(query, params)
-
-            return self.cursor.fetchall()
-
-        except Error as e:
-            raise DatabaseError(f"Fetch failed: {e}")
+        return self._run("fetch_all", query, params)
 
     def fetch_one(self, query: str, params: tuple = None) -> dict:
         """Return single row as dict."""
-        try:
-            if not self.connection:
-                self.connect()
-
-            self.cursor.execute(query, params)
-
-            return self.cursor.fetchone()
-
-        except Error as e:
-            raise DatabaseError(f"Fetch failed: {e}")
+        return self._run("fetch_one", query, params)
 
 
     # ── Users ───────────────────────────────────────────────────
-    def insert_user(self, username: str, password_hash: str, company_id: int) -> int:
+    def insert_user(self, username: str, password_hash: str, company_id: int, role: str = "admin") -> int:
         """Insert user, return user id."""
         query = """
-        INSERT INTO users (username, password_hash, company_id)
-        VALUES (%s, %s, %s)
+        INSERT INTO users (username, password_hash, company_id, role)
+        VALUES (%s, %s, %s, %s)
         """
 
         return self.execute_query(
             query,
-            (username, password_hash, company_id)
+            (username, password_hash, company_id, role)
         )
+
+    def update_user(self, user_id: int, data: dict):
+        """Update user fields from dict."""
+        fields = []
+        values = []
+
+        for key, value in data.items():
+            fields.append(f"{key} = %s")
+            values.append(value)
+
+        values.append(user_id)
+
+        query = f"""
+        UPDATE users
+        SET {', '.join(fields)}
+        WHERE id = %s
+        """
+
+        return self.execute_query(query, tuple(values))
+
+    def fetch_users_by_company(self, company_id: int) -> list:
+        """Return all users for a company (excludes password_hash)."""
+        query = """
+        SELECT id, username, role, created_at
+        FROM users
+        WHERE company_id = %s
+        ORDER BY created_at ASC
+        """
+
+        return self.fetch_all(query, (company_id,))
 
     def fetch_user_by_username(self, username: str) -> dict:
         """Return user dict or None."""
