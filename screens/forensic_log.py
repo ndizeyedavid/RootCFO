@@ -8,12 +8,15 @@ Two classes:
   for backwards compatibility (``push_screen("forensic_log")`` still works).
 """
 
+import csv
+from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
-from textual.containers import Vertical
+from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
 from textual.widgets import Button, DataTable, Footer, Header, Label
 
@@ -73,10 +76,17 @@ class ForensicLogPane(Vertical):
         height: 1fr;
         padding: 1 2;
     }
+    ForensicLogPane #forensic-header {
+        height: auto;
+        margin-bottom: 1;
+    }
     ForensicLogPane #forensic-log-title {
         text-style: bold;
         color: $primary;
-        padding: 0 0 1 0;
+        width: 1fr;
+    }
+    ForensicLogPane #report-btn {
+        width: 20;
     }
     ForensicLogPane #anomaly-table {
         height: 1fr;
@@ -97,7 +107,9 @@ class ForensicLogPane(Vertical):
         self._sort_reverse: dict = {}
 
     def compose(self) -> ComposeResult:
-        yield Label("Forensic Log", id="forensic-log-title")
+        with Horizontal(id="forensic-header"):
+            yield Label("Forensic Log", id="forensic-log-title")
+            yield Button("Create Report", id="report-btn", variant="default")
         yield Label(
             "No anomalies found for this company. "
             "Ingest a ledger via Ledger Ingestion to populate.",
@@ -185,7 +197,8 @@ class ForensicLogPane(Vertical):
         for anomaly, transaction in rows:
             date_value = transaction.get("date") if transaction else None
             amount_value = transaction.get("amount") if transaction else None
-            description = anomaly.get("description") or "(no description)"
+            raw_desc = anomaly.get("description") or "(no description)"
+            description = raw_desc[:55] + "..." if len(raw_desc) > 55 else raw_desc
             anomaly_type = anomaly.get("anomaly_type") or "unknown"
             severity = (anomaly.get("severity") or "info").lower()
 
@@ -224,7 +237,102 @@ class ForensicLogPane(Vertical):
         can call this to re-pull anomalies after new data lands."""
         self._load_anomalies()
 
+    @work(thread=True, exclusive=True)
+    def _generate_report(self) -> None:
+        self._audit_thread("Generating anomaly report ...", "info")
+
+        db = getattr(self.app, "db", None)
+        if db is None:
+            self._call_thread(self.notify, "Database not connected.", severity="error")
+            return
+
+        company_id = _resolve_company_id(self.app)
+        if company_id is None:
+            self._call_thread(self.notify, "No company context.", severity="warning")
+            return
+
+        try:
+            anomalies = db.fetch_anomalies(company_id)
+        except DatabaseError as exc:
+            self._audit_thread(f"Database error during report: {exc}", "crit")
+            self._call_thread(self.notify, f"Database error: {exc}", severity="error")
+            return
+
+        if not anomalies:
+            self._audit_thread("No anomalies found — nothing to export.", "warn")
+            self._call_thread(self.notify, "No anomalies to export.", severity="warning")
+            return
+
+        self._audit_thread(f"Fetched [yellow]{len(anomalies)}[/yellow] anomalies, enriching with transaction data ...", "info")
+
+        rows = []
+        for i, anomaly in enumerate(anomalies):
+            transaction = None
+            transaction_id = anomaly.get("transaction_id")
+            if transaction_id is not None:
+                try:
+                    transaction = db.fetch_transaction(transaction_id)
+                except DatabaseError:
+                    transaction = None
+
+            person = (transaction or {}).get("person") or ""
+            txn_date = transaction.get("date") if transaction else ""
+            if hasattr(txn_date, "isoformat"):
+                txn_date = txn_date.isoformat()
+            txn_desc = (transaction or {}).get("description") or ""
+            amount = (transaction or {}).get("amount") or ""
+            if amount:
+                try:
+                    amount = f"RWF {float(amount):,.2f}"
+                except (TypeError, ValueError):
+                    pass
+
+            rows.append({
+                "Anomaly ID": anomaly.get("id"),
+                "Anomaly Type": anomaly.get("anomaly_type", ""),
+                "Severity": anomaly.get("severity", ""),
+                "Anomaly Description": anomaly.get("description", ""),
+                "Transaction ID": transaction_id,
+                "Transaction Date": txn_date,
+                "Transaction Description": txn_desc,
+                "Amount": amount,
+                "Person": person,
+                "AI Analysis": anomaly.get("ai_analysis") or "",
+            })
+
+            if (i + 1) % 25 == 0 or i == len(anomalies) - 1:
+                self._audit_thread(f"  Enriched {i + 1}/{len(anomalies)} anomalies ...", "info")
+
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        path = Path(f"anomaly_report_{ts}.csv")
+        self._audit_thread(f"Writing CSV with [green]{len(rows)}[/green] rows to [b]{path.name}[/b] ...", "info")
+        try:
+            with open(path, "w", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=rows[0].keys())
+                writer.writeheader()
+                writer.writerows(rows)
+        except OSError as exc:
+            self._audit_thread(f"Failed to write CSV: {exc}", "crit")
+            self._call_thread(self.notify, f"Could not write CSV: {exc}", severity="error")
+            return
+
+        self._audit_thread(
+            f"Report exported: [green]{path.resolve()}[/green] "
+            f"({len(rows)} rows, {len(anomalies)} anomalies).",
+            "info",
+        )
+        self._call_thread(
+            self.notify,
+            f"Report saved to [bold]{path.name}[/bold]",
+            severity="information",
+            title="Export complete",
+        )
+
     # ── Event handlers ─────────────────────────────────────────────────
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "report-btn":
+            self._generate_report()
+
     def on_data_table_header_selected(self, event: DataTable.HeaderSelected) -> None:
         ascending = not self._sort_reverse.get(event.column_key, False)
         event.data_table.sort(event.column_key, key=_sort_key, reverse=not ascending)
@@ -245,12 +353,31 @@ class ForensicLogPane(Vertical):
 
         self.app.push_screen(ReportScreen(anomaly_id=anomaly_id))
 
-    # ── Cross-thread UI helper ─────────────────────────────────────────
+    # ── Cross-thread UI helpers ─────────────────────────────────────────
     def _call_thread(self, fn, *args, **kwargs) -> None:
         try:
             self.app.call_from_thread(fn, *args, **kwargs)
         except Exception:
             pass
+
+    def _audit(self, message: str, level: str = "info") -> None:
+        try:
+            fn = getattr(self.app, "_audit", None)
+            if callable(fn):
+                fn(message, level=level)
+                return
+        except Exception:
+            pass
+        try:
+            active = getattr(self.app, "screen", None)
+            writer = getattr(active, "write_audit", None)
+            if callable(writer):
+                writer(message)
+        except Exception:
+            pass
+
+    def _audit_thread(self, message: str, level: str = "info") -> None:
+        self._call_thread(self._audit, message, level)
 
 
 class ForensicLogScreen(Screen):

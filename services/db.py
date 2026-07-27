@@ -1,5 +1,7 @@
 """Priscilla: MySQL database connection and CRUD operations."""
 
+import threading
+
 import mysql.connector
 from mysql.connector import Error
 from utils.config import Config
@@ -10,13 +12,33 @@ class DatabaseError(Exception):
 
 
 class DatabaseManager:
-    """Priscilla: Implements all methods below."""
+    """Priscilla: Implements all methods below.
+
+    Thread-safe — each thread gets its own connection so concurrent
+    Textual workers (pipeline, dashboard, forensic log) don't step on
+    each other's cursor mid-query.
+    """
 
     def __init__(self):
-        self.connection = None
-        self.cursor = None
+        self._local = threading.local()
 
     # ── Connection ──────────────────────────────────────────────
+    @property
+    def connection(self):
+        return getattr(self._local, "connection", None)
+
+    @connection.setter
+    def connection(self, value):
+        self._local.connection = value
+
+    @property
+    def cursor(self):
+        return getattr(self._local, "cursor", None)
+
+    @cursor.setter
+    def cursor(self, value):
+        self._local.cursor = value
+
     def connect(self):
         """Close old connection, establish fresh MySQL connection."""
         self._close_quietly()

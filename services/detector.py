@@ -47,7 +47,7 @@ class AnomalyDetector:
         return combined
 
     def find_duplicates(self, transactions: list[Transaction]) -> list[Anomaly]:
-        """Flag transactions that share the same description and amount."""
+        """Flag duplicate groups — one anomaly per group of identical txns."""
         anomalies = []
         grouped_transactions = defaultdict(list)
 
@@ -59,18 +59,19 @@ class AnomalyDetector:
             if len(group) < 2:
                 continue
 
-            for transaction in group:
-                anomalies.append(
-                    Anomaly(
-                        company_id=transaction.company_id,
-                        transaction_id=transaction.id,
-                        anomaly_type="duplicate",
-                        severity="warning",
-                        description=(
-                            f"Duplicate transaction: {description} for RWF {amount:.2f}"
-                        ),
-                    )
+            first = group[0]
+            anomalies.append(
+                Anomaly(
+                    company_id=first.company_id,
+                    transaction_id=first.id,
+                    anomaly_type="duplicate",
+                    severity="warning",
+                    description=(
+                        f"Duplicate transaction: {description} for RWF {amount:.2f} "
+                        f"({len(group)} occurrences)"
+                    ),
                 )
+            )
 
         return anomalies
 
