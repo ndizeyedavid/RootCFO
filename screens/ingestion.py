@@ -1,18 +1,3 @@
-"""Juliana: File import pane — type the CSV/JSON path, then run the 4-step pipeline:
-
-  1. FileParser.parse(filepath)           → list[Transaction]
-  2. db.insert_transactions(company_id, transactions) → write rows, assign DB ids
-  3. AnomalyDetector.analyze_all(txns, bh) → list[Anomaly]
-  4. db.insert_anomalies(anomalies)       → write anomalies, assign DB ids
-
-NOTE: All step progress and final summaries are routed through ``self.app._audit``
-so they appear in the **dashboard's shared Audit Console** at the bottom of the
-screen. There is no separate per-pane log — this avoids multiple consoles.
-
-AI analysis is not part of the pipeline. It is triggered on-demand from the
-report screen when the auditor chats with the AI about a specific anomaly.
-"""
-
 from pathlib import Path
 from typing import Optional
 
@@ -41,7 +26,6 @@ DEFAULT_BUSINESS_HOURS = "Mon-Fri 09:00-17:00"
 
 
 def _resolve_company_id(app) -> Optional[int]:
-    """Dict-or-attribute safe resolver (matches pattern from ForensicLogPane)."""
     user = getattr(app, "current_user", None)
     if user is None:
         return None
@@ -51,7 +35,7 @@ def _resolve_company_id(app) -> Optional[int]:
 
 
 def _resolve_business_hours(app) -> str:
-    """Try to read business hours from app state; fall back to DEFAULT."""
+    
     settings = getattr(app, "settings", None)
     if isinstance(settings, dict):
         bh = settings.get("business_hours")
@@ -65,11 +49,6 @@ def _resolve_business_hours(app) -> str:
 
 
 class IngestionPane(Vertical):
-    """Reusable ingestion component — file path input + 7-step pipeline runner.
-
-    All logs and step summaries go to the **shared dashboard audit console**
-    via ``self.app._audit(...)``. There is no per-pane RichLog.
-    """
 
     DEFAULT_CSS = """
     IngestionPane {
@@ -157,7 +136,7 @@ class IngestionPane(Vertical):
         self._start_import(path)
 
     def _start_import(self, path: str) -> None:
-        """Kick off the pipeline worker (runs off the UI thread)."""
+        
         if getattr(self, "_import_worker_running", False):
             self.notify("An import is already running — please wait.",
                         severity="warning")
@@ -171,7 +150,7 @@ class IngestionPane(Vertical):
     # ── Pipeline ──────────────────────────────────────────────────────
     @work(thread=True, exclusive=True)
     def _run_pipeline(self, filepath_str: str) -> None:
-        """Full 4-step pipeline. Runs in a worker thread."""
+        
         self._set_attr_thread("_import_worker_running", True)
         app = self.app
         db: Optional[DatabaseManager] = getattr(app, "db", None)
@@ -379,7 +358,7 @@ class IngestionPane(Vertical):
             pass
 
     def _audit(self, message: str, level: str = "info") -> None:
-        """Route status/step messages to the shared dashboard audit console."""
+        
         try:
             fn = getattr(self.app, "_audit", None)
             if callable(fn):
@@ -397,16 +376,10 @@ class IngestionPane(Vertical):
             pass
 
     def _audit_thread(self, message: str, level: str = "info") -> None:
-        """Audit helper safe to call from worker thread."""
         self._call_thread(self._audit, message, level)
 
 
 class IngestionScreen(Screen):
-    """Thin standalone screen wrapper — embeds IngestionPane + Header/Footer.
-
-    Kept for backwards compatibility: `push_screen("ingestion")` still works.
-    The dashboard embeds ``IngestionPane`` directly in a ``ContentSwitcher``.
-    """
 
     def compose(self) -> ComposeResult:
         yield Header()

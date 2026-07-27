@@ -1,13 +1,3 @@
-"""Calvin: Color-coded anomaly table with clickable rows.
-
-Two classes:
-
-* ``ForensicLogPane(Vertical)`` — reusable, embeddable inside a ContentSwitcher
-  on the dashboard. Expects to be mounted with ``ForensicLogPane(id="forensic_log")``.
-* ``ForensicLogScreen(Screen)`` — thin standalone wrapper with Header/Footer kept
-  for backwards compatibility (``push_screen("forensic_log")`` still works).
-"""
-
 import csv
 import re
 from datetime import datetime
@@ -31,14 +21,6 @@ SEVERITY_STYLES = {
 
 
 def _sort_key(value):
-    """Normalize a cell value for sorting.
-
-    Text cells (used for the color-coded Severity column) are reduced to
-    their plain string. Currency-formatted Amount cells ("RWF 1,234.56") are
-    parsed back to a float so they sort numerically instead of
-    lexicographically. Everything else (Date is stored ISO-formatted, so
-    it already sorts correctly as a string) is left as-is.
-    """
     if isinstance(value, Text):
         value = value.plain
     if isinstance(value, str) and value.startswith("RWF "):
@@ -50,12 +32,6 @@ def _sort_key(value):
 
 
 def _resolve_company_id(app) -> Optional[int]:
-    """Resolve current company_id from app.current_user.
-
-    Handles both the dict-shape ``self.app.current_user`` set by the auth
-    flow via ``set_current_user`` **and** a class-shape User instance so
-    the pane works regardless of how the auth layer evolves.
-    """
     user = getattr(app, "current_user", None)
     if user is None:
         return None
@@ -65,12 +41,6 @@ def _resolve_company_id(app) -> Optional[int]:
 
 
 class ForensicLogPane(Vertical):
-    """Calvin: Embeddable anomaly list — sortable DataTable + empty state.
-
-    Mount on a dashboard ContentSwitcher as::
-
-        ForensicLogPane(id="forensic_log")
-    """
 
     DEFAULT_CSS = """
     ForensicLogPane {
@@ -140,11 +110,6 @@ class ForensicLogPane(Vertical):
     # ── Background worker ──────────────────────────────────────────────
     @work(thread=True, exclusive=True)
     def _load_anomalies(self) -> None:
-        """Fetch anomalies + related transactions off the UI thread.
-
-        mysql-connector is a blocking client; running this in a worker
-        keeps the TUI responsive while the query is in flight.
-        """
         self._call_thread(setattr, self, "loading", True)
 
         db = getattr(self.app, "db", None)
@@ -293,8 +258,6 @@ class ForensicLogPane(Vertical):
             self._apply_filter()
 
     def refresh_data(self) -> None:
-        """Public helper: other screens (e.g. IngestionPane post-import)
-        can call this to re-pull anomalies after new data lands."""
         self._load_anomalies()
 
     @work(thread=True, exclusive=True)
