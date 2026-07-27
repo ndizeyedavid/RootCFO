@@ -225,7 +225,7 @@ class DatabaseManager:
 
     def fetch_transactions(self, company_id: int) -> list:
         """Return all transactions for a company."""
-        
+
         query = """
         SELECT *
         FROM transactions
@@ -233,6 +233,14 @@ class DatabaseManager:
         """
 
         return self.fetch_all(query, (company_id,))
+
+    def count_transactions_by_source(self, company_id: int, source_file: str) -> int:
+        """Return how many transactions already exist for a source file."""
+        result = self.fetch_one(
+            "SELECT COUNT(*) AS cnt FROM transactions WHERE company_id = %s AND source_file = %s",
+            (company_id, source_file),
+        )
+        return result["cnt"] if result else 0
 
     def fetch_transaction(self, transaction_id: int) -> dict:
         """Return single transaction dict."""

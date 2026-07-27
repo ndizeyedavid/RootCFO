@@ -192,6 +192,15 @@ class IngestionPane(Vertical):
                 "info",
             )
 
+            # ── Guard: reject if source file was already imported ──
+            existing_count = db.count_transactions_by_source(company_id, filepath.name)
+            if existing_count > 0:
+                raise RuntimeError(
+                    f"File '[b]{filepath.name}[/b]' was already imported "
+                    f"({existing_count} transactions on record). "
+                    "Delete those records first or rename the file to re-import."
+                )
+
             # ── Step 2: insert transactions → get DB ids ──────────
             self._audit_thread(
                 "[2/4] Writing transactions to database ...",
