@@ -1,8 +1,3 @@
-"""David: RootCFOApp — main Textual application class.
-
-Registers all screens, holds shared DB/AI instances, defines global CSS theme.
-"""
-
 from typing import Optional
 
 from textual.app import App
@@ -20,7 +15,6 @@ from utils.logger import log
 
 
 class RootCFOApp(App):
-    """David: Orchestrator — owns DB/AI, registers screens, pushes auth on mount."""
 
     CSS_PATH = "styles.tcss"
 
@@ -46,12 +40,7 @@ class RootCFOApp(App):
         self.current_company_id: Optional[int] = None
         self._theme_mode = theme_mode if theme_mode in self.VALID_THEME_MODES else "dark"
 
-    def on_mount(self) -> None:
-        """David: init DatabaseManager + connect, init AIForensic, push auth screen.
-
-        Uses log() for audit messages. If either service fails, the user still lands
-        on the auth screen with a visible audit note — we don't crash the whole app.
-        """
+    def on_mount(self) -> None:    
         
         self.db = DatabaseManager()
         try:
@@ -83,11 +72,6 @@ class RootCFOApp(App):
 
     # ── Helpers ──────────────────────────────────────────────────────────
     def _audit(self, message: str, level: str = "info") -> None:
-        """Write to the audit console of the currently-active screen if it supports one.
-
-        Falls back to the dashboard screen's audit console if mounted, otherwise no-op.
-        Never raises.
-        """
         formatted = log(message, level=level)
         try:
             active = self.screen

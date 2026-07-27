@@ -1,13 +1,3 @@
-"""David: Master dashboard — sidebar navigation + content switcher + audit console.
-
-The sidebar drives a ``ContentSwitcher`` with five embedded panes:
-
-  * #dashboard      -> DashboardPane (KPI cards, transactions, chart)
-  * #ingestion      -> IngestionPane
-  * #forensic_log   -> ForensicLogPane
-  * #settings       -> SettingsPane
-"""
-
 from collections import Counter
 from functools import partial
 from typing import Optional
@@ -54,7 +44,6 @@ _SEP = "\u2500" * 50
 
 
 class DashboardPane(Vertical):
-    """Full dashboard overview — KPI cards, recent transactions, anomaly chart."""
 
     DEFAULT_CSS = """
     DashboardPane {
