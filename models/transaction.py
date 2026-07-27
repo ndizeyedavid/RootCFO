@@ -105,4 +105,4 @@ class Transaction:
     def __str__(self) -> str:
         """Human-readable transaction summary."""
         return (f"Transaction(id={self.id}, company={self.company_id}, "
-                f"desc='{self.description}', amt=${self.amount:.2f}, date={self.date})")
+                f"desc='{self.description}', amt=RWF {self.amount:.2f}, date={self.date})")

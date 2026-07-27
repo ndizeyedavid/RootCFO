@@ -10,8 +10,44 @@ from models.transaction import Transaction
 class AnomalyDetector:
     """Detect suspicious transactions using simple statistical checks."""
 
+    DEFAULT_BUSINESS_HOURS = "Mon-Fri 09:00-17:00"
+    DEFAULT_AMOUNT_THRESHOLD = 10000.0
+
+    def analyze_all(
+        self,
+        transactions: list[Transaction],
+        business_hours: str | None = None,
+        amount_threshold: float | None = None,
+    ) -> list[Anomaly]:
+        """Run all detectors and return combined deduplicated anomaly list.
+
+        Args:
+            transactions: list of Transaction objects (MUST have .id populated).
+            business_hours: "Mon-Fri 09:00-17:00" style string or None for default.
+            amount_threshold: RWF threshold above which to flag, or None for default.
+        """
+        bh = business_hours or self.DEFAULT_BUSINESS_HOURS
+        threshold = amount_threshold if amount_threshold is not None else self.DEFAULT_AMOUNT_THRESHOLD
+
+        seen: set[tuple[int, str]] = set()
+        combined: list[Anomaly] = []
+        sources = [
+            self.find_duplicates(transactions),
+            self.find_off_hours(transactions, bh),
+            self.threshold_breaker(transactions, threshold),
+            self.benfords_test(transactions),
+        ]
+        for bucket in sources:
+            for anomaly in bucket:
+                key = (anomaly.transaction_id, anomaly.anomaly_type)
+                if key in seen:
+                    continue
+                seen.add(key)
+                combined.append(anomaly)
+        return combined
+
     def find_duplicates(self, transactions: list[Transaction]) -> list[Anomaly]:
-        """Flag transactions that share the same description and amount."""
+        """Flag duplicate groups — one anomaly per group of identical txns."""
         anomalies = []
         grouped_transactions = defaultdict(list)
 
@@ -23,18 +59,19 @@ class AnomalyDetector:
             if len(group) < 2:
                 continue
 
-            for transaction in group:
-                anomalies.append(
-                    Anomaly(
-                        company_id=transaction.company_id,
-                        transaction_id=transaction.id,
-                        anomaly_type="duplicate",
-                        severity="warning",
-                        description=(
-                            f"Duplicate transaction: {description} for ${amount:.2f}"
-                        ),
-                    )
+            first = group[0]
+            anomalies.append(
+                Anomaly(
+                    company_id=first.company_id,
+                    transaction_id=first.id,
+                    anomaly_type="duplicate",
+                    severity="warning",
+                    description=(
+                        f"Duplicate transaction: {description} for RWF {amount:.2f} "
+                        f"({len(group)} occurrences)"
+                    ),
                 )
+            )
 
         return anomalies
 
@@ -90,8 +127,16 @@ class AnomalyDetector:
         return anomalies
 
     def benfords_test(self, transactions: list[Transaction]) -> list[Anomaly]:
-        """Check whether the first digits roughly follow Benford's Law."""
-        digits = defaultdict(int)
+        """Check whether first-digit distribution follows Benford's Law.
+
+        Returns at most ONE anomaly — Benford's Law is a dataset-level test,
+        not a per-transaction flag. If the distribution deviates significantly,
+        a single summary anomaly is produced.
+        """
+        if len(transactions) < 50:
+            return []
+
+        digits: dict[int, int] = defaultdict(int)
 
         for transaction in transactions:
             amount = abs(int(transaction.amount))
@@ -102,7 +147,7 @@ class AnomalyDetector:
                 digits[first_digit] += 1
 
         total = sum(digits.values())
-        if total == 0:
+        if total < 50:
             return []
 
         expected_distribution = {
@@ -127,19 +172,30 @@ class AnomalyDetector:
         if chi_square < 15.51:
             return []
 
-        anomalies = []
-        for transaction in transactions:
-            anomalies.append(
-                Anomaly(
-                    company_id=transaction.company_id,
-                    transaction_id=transaction.id,
-                    anomaly_type="benford",
-                    severity="warning",
-                    description="Transaction set does not match Benford's Law.",
-                )
-            )
+        observed_pct = {
+            d: round(digits.get(d, 0) / total * 100, 1) for d in range(1, 10)
+        }
+        expected_pct = {
+            d: round(expected_distribution[d] * 100, 1) for d in range(1, 10)
+        }
+        biggest_digit = max(range(1, 10), key=lambda d: abs(digits.get(d, 0) / total - expected_distribution[d]))
 
-        return anomalies
+        first = transactions[0]
+        return [
+            Anomaly(
+                company_id=first.company_id,
+                transaction_id=first.id,
+                anomaly_type="benford",
+                severity="warning",
+                description=(
+                    f"Benford's Law deviation detected (χ²={chi_square:.1f}). "
+                    f"Most skewed digit: {biggest_digit} "
+                    f"(observed {observed_pct[biggest_digit]}% vs expected {expected_pct[biggest_digit]}%). "
+                    f"First-digit distribution does not match the expected Benford pattern "
+                    f"across {total} transactions."
+                ),
+            )
+        ]
 
     def threshold_breaker(
         self,
@@ -157,7 +213,7 @@ class AnomalyDetector:
                         transaction_id=transaction.id,
                         anomaly_type="amount_threshold",
                         severity="warning",
-                        description=f"Transaction amount ${transaction.amount:.2f} is above the threshold.",
+                        description=f"Transaction amount RWF {transaction.amount:.2f} is above the threshold.",
                     )
                 )
 

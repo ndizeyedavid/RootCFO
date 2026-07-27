@@ -1,7 +1,4 @@
--- Active: 1784986771712@@mysql-225821d8-test-db-102234.j.aivencloud.com@27766@rootcfo
--- Active: 1784281163654@@mysql-168a8dfe-alustudent-5968.b.aivencloud.com@17422@defaultdb
--- Create the database
--- Create database
+-- Active: 1785112301079@@127.0.0.1@3306@alu_db
 CREATE DATABASE IF NOT EXISTS rootcfo;
 
 -- Select database

@@ -1,18 +1,23 @@
 """Elyse: File parsing — reads CSV/JSON, validates, returns Transaction list."""
 
+import logging
 import pandas as pd
 from pathlib import Path
+from typing import Optional
+
 from models.transaction import Transaction
+
+logger = logging.getLogger(__name__)
 
 
 class ParserError(Exception):
-     def __init__(self, message: str, row_errors: list[str] | None = None):
+    def __init__(self, message: str, row_errors: list[str] | None = None):
         super().__init__(message)
         self.message = message
         self.row_errors = row_errors or []
 
-class FileParser:
 
+class FileParser:
 
     REQUIRED_COLUMNS = ["Date", "Description", "Amount", "Account", "Person"]
 
@@ -23,7 +28,7 @@ class FileParser:
             return "csv"
         if ext == ".json":
             return "json"
-        raise ParserError(f"File is empty: {filepath}")
+        raise ParserError(f"Unsupported file format '{ext}'. Use .csv or .json.")
 
     @staticmethod
     def validate_columns(df: pd.DataFrame):
@@ -43,44 +48,45 @@ class FileParser:
         df.rename(columns=rename_map, inplace=True)
 
     @staticmethod
-    def parse(filepath: str) -> list[Transaction]:
+    def parse(filepath: str, company_id: int = 0,
+              source_file: Optional[str] = None) -> list[Transaction]:
         path = Path(filepath)
         if not path.exists():
             raise ParserError(f"File not found: {filepath}")
- 
+
         if path.stat().st_size == 0:
             raise ParserError(f"File is empty: {filepath}")
- 
+
         file_format = FileParser.detect_format(filepath)
-        try:
-            transactions = FileParser.parse(filepath)
-        except ParserError as e:
-            print(e)
+        source_name = source_file or path.name
 
         try:
             if file_format == "csv":
                 df = pd.read_csv(path, skipinitialspace=True)
                 for col in df.select_dtypes(include="object").columns:
                     df[col] = df[col].astype(str).str.strip()
-            else:  
+            else:
                 df = pd.read_json(path)
         except (pd.errors.EmptyDataError, pd.errors.ParserError, ValueError) as e:
             raise ParserError(f"Could not read '{filepath}': {e}")
- 
+
         if df.empty:
             raise ParserError(f"File contains no rows: {filepath}")
- 
+
         FileParser.validate_columns(df)
- 
+
         transactions: list[Transaction] = []
         for idx, row in df.iterrows():
             try:
-                transactions.append(Transaction.from_csv_row(row.to_dict()))
+                normalized = {str(k).strip().lower(): v for k, v in row.to_dict().items()}
+                transactions.append(
+                    Transaction.from_csv_row(normalized, company_id=company_id,
+                                             source_file=source_name)
+                )
             except (ValueError, KeyError, TypeError) as e:
-            
                 logger.warning("Skipping row %d in '%s': %s", idx + 2, filepath, e)
- 
+
         if not transactions:
             raise ParserError(f"No valid rows could be parsed from '{filepath}'.")
- 
+
         return transactions

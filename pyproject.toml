@@ -13,4 +13,5 @@ dependencies = [
     "bcrypt==5.0.0",
     "textual-dev>=1.8.0",
     "dotenv>=0.9.9",
+    "textual-filedrop>=0.1",
 ]

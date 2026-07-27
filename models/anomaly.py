@@ -24,14 +24,14 @@ class AnomalyType(Enum):
 
 @dataclass
 class Anomaly:
-    id: Optional[int]
-    company_id: int
-    transaction_id: int
-    anomaly_type: str
-    severity: str
-    description: str
+    id: Optional[int] = None
+    company_id: int = 0
+    transaction_id: int = 0
+    anomaly_type: str = "unknown"
+    severity: str = "info"
+    description: str = ""
     ai_analysis: Optional[str] = None
-    flagged_at: datetime = None
+    flagged_at: Optional[datetime] = None
  
     def __post_init__(self):
         if self.flagged_at is None:
