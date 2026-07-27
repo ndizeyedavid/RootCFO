@@ -61,25 +61,38 @@ class DashboardPane(Vertical):
 
     DashboardPane .kpi-card {
         width: 1fr;
-        height: 5;
+        height: 7;
         border: solid $primary;
         margin: 0 1 0 0;
-        padding: 1 1;
+        padding: 0 1;
         text-align: center;
         content-align: center middle;
     }
     DashboardPane .kpi-card:last-child {
         margin-right: 0;
     }
+    DashboardPane .kpi-card .kpi-icon {
+        text-style: bold;
+        text-align: center;
+        width: 100%;
+        height: 1;
+    }
     DashboardPane .kpi-card .kpi-value {
         text-style: bold;
         text-align: center;
         width: 100%;
+        height: 1;
     }
     DashboardPane .kpi-card .kpi-label {
+        text-align: center;
+        width: 100%;
+        height: 1;
+    }
+    DashboardPane .kpi-card .kpi-desc {
         color: $text-muted;
         text-align: center;
         width: 100%;
+        height: 1;
     }
     DashboardPane .kpi-card.kpi-txns {
         border: solid $primary;
@@ -249,10 +262,10 @@ class DashboardPane(Vertical):
         clean_count = total_txns - len(anomaly_txn_ids)
         clean_rate = (clean_count / total_txns * 100) if total_txns > 0 else 100.0
 
-        self._render_kpi("kpi-txns", f"{total_txns:,}", "Total Transactions", "kpi-txns")
-        self._render_kpi("kpi-anomalies", f"{total_anomalies:,}", "Anomalies", "kpi-anomalies")
-        self._render_kpi("kpi-critical", f"{critical:,}", "Critical", "kpi-critical")
-        self._render_kpi("kpi-clean", f"{clean_rate:.1f}%", "Clean Rate", "kpi-clean")
+        self._render_kpi("kpi-txns", f"{total_txns:,}", "Total Transactions", "All ledger entries in system", "📊", "kpi-txns")
+        self._render_kpi("kpi-anomalies", f"{total_anomalies:,}", "Anomalies Flagged", "Suspicious entries detected", "⚠️", "kpi-anomalies")
+        self._render_kpi("kpi-critical", f"{critical:,}", "Critical Severity", "Requires immediate review", "🔴", "kpi-critical")
+        self._render_kpi("kpi-clean", f"{clean_rate:.1f}%", "Clean Rate", "Transactions with no flags", "✅", "kpi-clean")
 
         sorted_txns = sorted(txns, key=lambda t: t.get("date") or "", reverse=True)
         self._transactions = sorted_txns
@@ -261,11 +274,11 @@ class DashboardPane(Vertical):
 
         self._render_chart(anomalies)
 
-    def _render_kpi(self, widget_id: str, value: str, label: str, css_class: str) -> None:
+    def _render_kpi(self, widget_id: str, value: str, label: str, desc: str, icon: str, css_class: str) -> None:
         try:
             container = self.query_one(f"#{widget_id}", Static)
             container.set_classes(f"kpi-card {css_class}")
-            container.update(f"[bold]{value}[/bold]\n{label}")
+            container.update(f"{icon}\n[bold]{value}[/bold]\n{label}\n{desc}")
         except Exception:
             pass
 

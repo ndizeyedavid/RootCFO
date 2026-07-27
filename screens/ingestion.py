@@ -1,16 +1,16 @@
-"""Juliana: File import pane — type the CSV/JSON path, then run the 7-step pipeline:
+"""Juliana: File import pane — type the CSV/JSON path, then run the 4-step pipeline:
 
   1. FileParser.parse(filepath)           → list[Transaction]
   2. db.insert_transactions(company_id, transactions) → write rows, assign DB ids
   3. AnomalyDetector.analyze_all(txns, bh) → list[Anomaly]
   4. db.insert_anomalies(anomalies)       → write anomalies, assign DB ids
-  5. ai.analyze_and_assign(anomalies, txns) → per-anomaly AI narrative
-  6. db.update_anomaly_analyses(anomalies) → persist ai_analysis column
-  7. Aggregate counts → status label + audit console
 
 NOTE: All step progress and final summaries are routed through ``self.app._audit``
 so they appear in the **dashboard's shared Audit Console** at the bottom of the
 screen. There is no separate per-pane log — this avoids multiple consoles.
+
+AI analysis is not part of the pipeline. It is triggered on-demand from the
+report screen when the auditor chats with the AI about a specific anomaly.
 """
 
 from pathlib import Path
@@ -32,7 +32,6 @@ from textual.widgets import (
 
 from models.anomaly import Anomaly
 from models.transaction import Transaction
-from services.ai_forensic import AIForensic
 from services.db import DatabaseError, DatabaseManager
 from services.detector import AnomalyDetector
 from services.parser import FileParser, ParserError
@@ -172,18 +171,16 @@ class IngestionPane(Vertical):
     # ── Pipeline ──────────────────────────────────────────────────────
     @work(thread=True, exclusive=True)
     def _run_pipeline(self, filepath_str: str) -> None:
-        """Full 7-step pipeline. Runs in a worker thread."""
+        """Full 4-step pipeline. Runs in a worker thread."""
         self._set_attr_thread("_import_worker_running", True)
         app = self.app
         db: Optional[DatabaseManager] = getattr(app, "db", None)
-        ai: Optional[AIForensic] = getattr(app, "ai", None)
 
         counts = {
             "parsed": 0,
             "inserted_txns": 0,
             "anomalies": 0,
             "inserted_anomalies": 0,
-            "ai_ok": None,
         }
         ok = False
         error_text: Optional[str] = None
@@ -203,23 +200,22 @@ class IngestionPane(Vertical):
             bh = _resolve_business_hours(app)
 
             # ── Step 1: parse ─────────────────────────────────────
-            self._audit_thread(f"[1/7] Parsing [b]{filepath.name}[/b] ...", "info")
-            self._call_thread(self._update_progress, 5)
+            self._audit_thread(f"[1/4] Parsing [b]{filepath.name}[/b] ...", "info")
+            self._call_thread(self._update_progress, 15)
             transactions: list[Transaction] = FileParser.parse(
                 str(filepath),
                 company_id=company_id,
                 source_file=filepath.name,
             )
             counts["parsed"] = len(transactions)
-            self._call_thread(self._update_progress, 15)
             self._audit_thread(
-                f"[1/7] Parsed [green]{counts['parsed']}[/green] transactions from {filepath.name}.",
+                f"[1/4] Parsed [green]{counts['parsed']}[/green] transactions from {filepath.name}.",
                 "info",
             )
 
             # ── Step 2: insert transactions → get DB ids ──────────
             self._audit_thread(
-                "[2/7] Writing transactions to database ...",
+                "[2/4] Writing transactions to database ...",
                 "info",
             )
             inserted_ids: list[int] = db.insert_transactions(company_id, transactions)
@@ -233,32 +229,32 @@ class IngestionPane(Vertical):
             for txn, new_id in zip(transactions, inserted_ids):
                 if new_id:
                     txn.id = new_id
-            self._call_thread(self._update_progress, 30)
+            self._call_thread(self._update_progress, 45)
             self._audit_thread(
-                f"[2/7] Inserted [green]{counts['inserted_txns']}[/green] transactions.",
+                f"[2/4] Inserted [green]{counts['inserted_txns']}[/green] transactions.",
                 "info",
             )
 
             # ── Step 3: detect anomalies ──────────────────────────
             self._audit_thread(
-                f"[3/7] Running anomaly detection (business hours: {bh}) ...",
+                f"[3/4] Running anomaly detection (business hours: {bh}) ...",
                 "info",
             )
             anomalies: list[Anomaly] = self._detector.analyze_all(
                 transactions, business_hours=bh
             )
             counts["anomalies"] = len(anomalies)
-            self._call_thread(self._update_progress, 45)
+            self._call_thread(self._update_progress, 70)
             level = "info" if counts["anomalies"] == 0 else "warn"
             self._audit_thread(
-                f"[3/7] Detected [yellow]{counts['anomalies']}[/yellow] anomalies.",
+                f"[3/4] Detected [yellow]{counts['anomalies']}[/yellow] anomalies.",
                 level,
             )
 
-            # ── Step 4: insert anomalies → get DB ids ────────────
+            # ── Step 4: insert anomalies ──────────────────────────
             if counts["anomalies"] > 0:
                 self._audit_thread(
-                    "[4/7] Writing anomalies to database ...",
+                    "[4/4] Writing anomalies to database ...",
                     "info",
                 )
                 anomaly_ids = db.insert_anomalies(anomalies)
@@ -266,71 +262,18 @@ class IngestionPane(Vertical):
                 for a, new_id in zip(anomalies, anomaly_ids):
                     if new_id:
                         a.id = new_id
-                self._call_thread(self._update_progress, 55)
+                self._call_thread(self._update_progress, 100)
                 self._audit_thread(
-                    f"[4/7] Inserted [green]{counts['inserted_anomalies']}[/green] anomalies.",
+                    f"[4/4] Inserted [green]{counts['inserted_anomalies']}[/green] anomalies.",
                     "info",
                 )
             else:
-                self._call_thread(self._update_progress, 55)
+                self._call_thread(self._update_progress, 100)
                 self._audit_thread(
-                    "[4/7] No anomalies — nothing to insert.",
+                    "[4/4] No anomalies — nothing to insert.",
                     "info",
                 )
-                counts["inserted_anomalies"] = 0
 
-            # ── Step 5 & 6: AI analyze + persist analyses ────────
-            if counts["anomalies"] > 0:
-                if ai is None:
-                    for a in anomalies:
-                        a.ai_analysis = (
-                            "AI analysis skipped — AIForensic client not loaded."
-                        )
-                    counts["ai_ok"] = False
-                    self._call_thread(self._update_progress, 90)
-                    self._audit_thread(
-                        "[5/7] AI not available — writing placeholder.",
-                        "warn",
-                    )
-                else:
-                    self._call_thread(self._update_progress, 60)
-                    self._audit_thread(
-                        "[5/7] Calling AI forensic analysis (this may take a few seconds) ...",
-                        "info",
-                    )
-                    ai_ok, ai_summary = ai.analyze_and_assign(anomalies, transactions)
-                    self._call_thread(self._update_progress, 90)
-                    counts["ai_ok"] = ai_ok
-                    if ai_ok:
-                        self._audit_thread(
-                            "[5/7] AI forensic analysis completed successfully.",
-                            "info",
-                        )
-                    else:
-                        self._audit_thread(
-                            f"[5/7] [yellow]AI skipped: {ai_summary[:200]}[/yellow]",
-                            "warn",
-                        )
-                self._audit_thread(
-                    "[6/7] Persisting AI analyses to database ...",
-                    "info",
-                )
-                db.update_anomaly_analyses(anomalies)
-                self._call_thread(self._update_progress, 95)
-                self._audit_thread("[6/7] Analyses persisted.", "info")
-            else:
-                self._audit_thread(
-                    "[5/7] No anomalies — AI analysis skipped.",
-                    "info",
-                )
-                self._audit_thread(
-                    "[6/7] Nothing to persist.",
-                    "info",
-                )
-                counts["ai_ok"] = True
-
-            # ── Step 7: summary ──────────────────────────────────
-            self._call_thread(self._update_progress, 100)
             ok = True
 
         except ParserError as e:
@@ -383,9 +326,6 @@ class IngestionPane(Vertical):
             f"Anomalies: {counts['anomalies']} · "
             f"Anomalies inserted: {counts['inserted_anomalies']}"
         )
-        if counts["anomalies"] > 0:
-            ai_status = "OK" if counts["ai_ok"] else "skipped"
-            parts.append(f"AI analysis: {ai_status}")
         return "  ".join(parts)
 
     def _request_forensic_refresh(self) -> None:

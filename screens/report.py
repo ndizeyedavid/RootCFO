@@ -23,9 +23,11 @@ from services.db import DatabaseError, DatabaseManager
 
 
 _SYSTEM_CHAT_INTRO = (
-    "You are continuing a forensic accounting conversation about a specific flagged "
-    "anomaly. Answer the auditor's follow-up questions concisely, grounded in the "
-    "original forensic report above. Do not invent data that was not provided."
+    "You are a forensic accounting AI assistant. You are helping an auditor "
+    "investigate a specific flagged anomaly. You have full context of the anomaly, "
+    "its related transaction, the account involved, and the person responsible. "
+    "Answer follow-up questions concisely, grounded in the data provided below. "
+    "Do not invent data that was not provided."
 )
 
 
@@ -337,11 +339,22 @@ class ReportPane(Vertical):
                 "role": "system",
                 "content": (
                     f"{_SYSTEM_CHAT_INTRO}\n\n"
-                    f"Anomaly id: {getattr(anomaly, 'id', '?')}\n"
-                    f"Anomaly type: {anomaly.anomaly_type}\n"
+                    f"--- Anomaly ---\n"
+                    f"ID: {getattr(anomaly, 'id', '?')}\n"
+                    f"Type: {anomaly.anomaly_type}\n"
                     f"Severity: {anomaly.severity}\n"
                     f"Description: {anomaly.description}\n"
-                    f"\nOriginal forensic report produced above:\n\n"
+                    + (
+                        f"\n--- Related Transaction ---\n"
+                        f"ID: {getattr(transaction, 'id', '?')}\n"
+                        f"Date: {_fmt_date(getattr(transaction, 'date', None))}\n"
+                        f"Amount: {_fmt_amount(getattr(transaction, 'amount', None))}\n"
+                        f"Account: {getattr(transaction, 'account', '—') or '—'}\n"
+                        f"Person: {getattr(transaction, 'person', '—') or '—'}\n"
+                        f"Description: {getattr(transaction, 'description', '—')}\n"
+                        if transaction else ""
+                    )
+                    + f"\n--- Original Forensic Report ---\n\n"
                     f"{analysis_text or ''}\n"
                 ),
             }
