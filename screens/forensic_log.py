@@ -37,9 +37,9 @@ def _sort_key(value):
     """
     if isinstance(value, Text):
         value = value.plain
-    if isinstance(value, str) and value.startswith("$"):
+    if isinstance(value, str) and value.startswith("RWF "):
         try:
-            return float(value.replace("$", "").replace(",", ""))
+            return float(value.replace("RWF ", "").replace(",", ""))
         except ValueError:
             pass
     return value
@@ -197,7 +197,7 @@ class ForensicLogPane(Vertical):
                 date_text = "—"
             if amount_value is not None:
                 try:
-                    amount_text = f"${float(amount_value):,.2f}"
+                    amount_text = f"RWF {float(amount_value):,.2f}"
                 except (TypeError, ValueError):
                     amount_text = str(amount_value)
             else:

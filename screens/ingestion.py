@@ -1,5 +1,4 @@
-"""Juliana: File import pane — drag-drop CSV/JSON via textual-filedrop OR type path,
-then run the full 7-step end-to-end pipeline:
+"""Juliana: File import pane — type the CSV/JSON path, then run the 7-step pipeline:
 
   1. FileParser.parse(filepath)           → list[Transaction]
   2. db.insert_transactions(company_id, transactions) → write rows, assign DB ids
@@ -27,16 +26,8 @@ from textual.widgets import (
     Header,
     Input,
     Label,
-    Markdown,
     Static,
 )
-
-try:
-    from textual_filedrop import FileDrop  # type: ignore
-    _FILEDROP_AVAILABLE = True
-except Exception:  # pragma: no cover - optional dep
-    FileDrop = None  # type: ignore
-    _FILEDROP_AVAILABLE = False
 
 from models.anomaly import Anomaly
 from models.transaction import Transaction
@@ -47,12 +38,6 @@ from services.parser import FileParser, ParserError
 
 
 DEFAULT_BUSINESS_HOURS = "Mon-Fri 09:00-17:00"
-
-_DROPZONE_HINT = (
-    "### Drag & Drop CSV / JSON here  \n"
-    "Focus the drop zone, then drag your ledger file into the terminal.  \n"
-    "Or paste a path, or type it into the input below."
-)
 
 
 def _resolve_company_id(app) -> Optional[int]:
@@ -80,7 +65,7 @@ def _resolve_business_hours(app) -> str:
 
 
 class IngestionPane(Vertical):
-    """Reusable ingestion component — drop zone + path input + pipeline runner.
+    """Reusable ingestion component — file path input + 7-step pipeline runner.
 
     All logs and step summaries go to the **shared dashboard audit console**
     via ``self.app._audit(...)``. There is no per-pane RichLog.
@@ -95,25 +80,6 @@ class IngestionPane(Vertical):
         text-style: bold;
         color: $primary;
         padding: 0 0 1 0;
-    }
-    IngestionPane #drop-wrap {
-        height: 8;
-        border: dashed $accent;
-        padding: 1;
-        content-align: center middle;
-        margin-bottom: 1;
-    }
-    IngestionPane #drop-wrap:focus-within {
-        border: solid $accent;
-        background: $boost;
-    }
-    IngestionPane #dropzone-hint {
-        padding: 0 2;
-        background: transparent;
-    }
-    IngestionPane #dropzone-hint MarkdownFence,
-    IngestionPane #dropzone-hint CodeBlock {
-        background: transparent;
     }
     IngestionPane #path-row {
         height: auto;
@@ -145,19 +111,6 @@ class IngestionPane(Vertical):
     # ── Compose ───────────────────────────────────────────────────────
     def compose(self) -> ComposeResult:
         yield Label("Ledger Ingestion", id="ingestion-title")
-
-        if _FILEDROP_AVAILABLE and FileDrop is not None:
-            with Horizontal(id="drop-wrap"):
-                yield FileDrop(id="filedrop")
-            yield Markdown(_DROPZONE_HINT, id="dropzone-hint")
-        else:
-            with Vertical(id="drop-wrap"):
-                yield Static(
-                    "Drag & drop disabled (textual-filedrop not importable).\n"
-                    "Use the file-path input below — all other functions work.",
-                    id="dropzone-hint",
-                )
-
         yield Static(
             "Supported formats: .csv and .json."
             ""
@@ -176,11 +129,10 @@ class IngestionPane(Vertical):
         )
 
     def on_mount(self) -> None:
-        if _FILEDROP_AVAILABLE and FileDrop is not None:
-            try:
-                self.query_one("#filedrop").focus()
-            except Exception:
-                pass
+        try:
+            self.query_one("#file-path", Input).focus()
+        except Exception:
+            pass
 
     # ── File input handlers ───────────────────────────────────────────
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -190,26 +142,6 @@ class IngestionPane(Vertical):
     def on_input_submitted(self, event: Input.Submitted) -> None:
         if event.input.id == "file-path":
             self._start_import_from_input()
-
-    def on_file_drop_selected(self, message) -> None:  # textual-filedrop 0.1 event
-        """Handle FileDrop.Selected event emitted by textual-filedrop 0.1."""
-        first_path: Optional[str] = None
-        try:
-            filepaths = getattr(message, "filepaths", None) or []
-            if isinstance(filepaths, list) and filepaths:
-                candidate = filepaths[0]
-                if isinstance(candidate, str):
-                    first_path = candidate
-        except Exception:
-            first_path = None
-
-        if first_path is None:
-            self.notify("No files detected — try again.", severity="warning")
-            return
-
-        self.query_one("#file-path", Input).value = str(first_path)
-        self._audit(f"File dropped: [b]{Path(first_path).name}[/b]", "info")
-        self._start_import(first_path)
 
     # ── Trigger helpers ───────────────────────────────────────────────
     def _start_import_from_input(self) -> None:
