@@ -262,10 +262,10 @@ class DashboardPane(Vertical):
         clean_count = total_txns - len(anomaly_txn_ids)
         clean_rate = (clean_count / total_txns * 100) if total_txns > 0 else 100.0
 
-        self._render_kpi("kpi-txns", f"{total_txns:,}", "Total Transactions", "All ledger entries in system", "📊", "kpi-txns")
-        self._render_kpi("kpi-anomalies", f"{total_anomalies:,}", "Anomalies Flagged", "Suspicious entries detected", "⚠️", "kpi-anomalies")
-        self._render_kpi("kpi-critical", f"{critical:,}", "Critical Severity", "Requires immediate review", "🔴", "kpi-critical")
-        self._render_kpi("kpi-clean", f"{clean_rate:.1f}%", "Clean Rate", "Transactions with no flags", "✅", "kpi-clean")
+        self._render_kpi("kpi-txns", f"{total_txns:,}", "Total Transactions", "All ledger entries in system", "", "kpi-txns")
+        self._render_kpi("kpi-anomalies", f"{total_anomalies:,}", "Anomalies Flagged", "Suspicious entries detected", "", "kpi-anomalies")
+        self._render_kpi("kpi-critical", f"{critical:,}", "Critical Severity", "Requires immediate review", "", "kpi-critical")
+        self._render_kpi("kpi-clean", f"{clean_rate:.1f}%", "Clean Rate", "Transactions with no flags", "", "kpi-clean")
 
         sorted_txns = sorted(txns, key=lambda t: t.get("date") or "", reverse=True)
         self._transactions = sorted_txns
