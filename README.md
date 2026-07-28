@@ -3,10 +3,26 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/"><img src="https://img.shields.io/badge/version-0.0.1-blue.svg" alt="Version 0.0.1" /></a>
+  <a href="https://github.com/ndizeyedavid"><img src="https://img.shields.io/badge/version-0.0.1-blue.svg" alt="Version 0.0.1" /></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.12-blue.svg" alt="Python" /></a>
   <a href="https://textual.textualize.io/"><img src="https://img.shields.io/badge/textual-8.2.8-lightgrey.svg" alt="Textual" /></a>
 </p>
+
+<br>
+
+<!-- PROJECT MEDIA BUTTONS -->
+<table align="center" border="0">
+  <tr>
+    <td align="center">
+      <a href="https://drive.google.com/file/d/1Rc5t602povTo99yPqPvAlE6tWtum53Na/view?t=2h13m21s&autoplay=1"><img src="https://img.shields.io/badge/%20Watch%20Presentation-6C5CE7?style=for-the-badge&logo=youtube&logoColor=white" alt="Watch Presentation"></a>
+    </td>
+    <td align="center">
+      <a href="https://docs.google.com/document/d/15mQ4zPbBiQm7yBfrEN1Xqjit0ZujzrfRyXQwil2xjrY/edit?usp=sharing"><img src="https://img.shields.io/badge/%20Read%20Documentation-0984E3?style=for-the-badge&logo=googledocs&logoColor=white" alt="Read Documentation"></a>
+    </td>
+  </tr>
+</table>
+
+<br>
 
 ## 1. Overview
 
@@ -16,38 +32,38 @@ RootCFO is an interactive terminal-based financial intelligence application buil
 
 ```
 rootcfo/
-├── main.py                      # Entry point
-├── app.py                       # RootCFOApp (Textual App subclass)
-├── .env                         # DB creds, API keys (gitignored)
-├── .env.example                 # Template for teammates
-├── requirements.txt             # Dependencies
-├── pyproject.toml               # Project metadata
-├── README.md                    # Setup & usage instructions
+├── main.py                      ==> Entry point
+├── app.py                       ==> RootCFOApp (Textual App subclass)
+├── .env                         ==> DB creds, API keys (gitignored)
+├── .env.example                 ==> Template for teammates
+├── requirements.txt             ==> Dependencies
+├── pyproject.toml               ==> Project metadata
+├── README.md                    ==> Setup & usage instructions
 ├── sql/
-│   └── schema.sql               # Table creation scripts (Juliana)
+│   └── schema.sql               ==> Table creation scripts (Juliana)
 ├── screens/
 │   ├── __init__.py
-│   ├── auth_screen.py           # Login/Signup tabs (Bruce)
-│   ├── onboarding.py            # Business profile form (Bruce)
-│   ├── dashboard.py             # Master dashboard + sidebar (David)
-│   ├── ingestion.py             # CSV/JSON file import (Juliana)
-│   ├── forensic_log.py          # Color-coded anomaly table (Calvin)
-│   └── report.py                # AI report + follow-up chat (Calvin)
+│   ├── auth_screen.py           ==> Login/Signup tabs (Bruce)
+│   ├── onboarding.py            ==> Business profile form (Bruce)
+│   ├── dashboard.py             ==> Master dashboard + sidebar (David)
+│   ├── ingestion.py             ==> CSV/JSON file import (Juliana)
+│   ├── forensic_log.py          ==> Color-coded anomaly table (Calvin)
+│   └── report.py                ==> AI report + follow-up chat (Calvin)
 ├── models/
 │   ├── __init__.py
-│   ├── user.py                  # User, Company dataclasses (Bruce)
-│   ├── transaction.py           # Transaction dataclass (Jimmy)
-│   └── anomaly.py               # Anomaly dataclass (Elyse)
+│   ├── user.py                  ==> User, Company dataclasses (Bruce)
+│   ├── transaction.py           ==> Transaction dataclass (Jimmy)
+│   └── anomaly.py               ==> Anomaly dataclass (Elyse)
 ├── services/
 │   ├── __init__.py
-│   ├── db.py                    # MySQL CRUD wrapper (Priscilla)
-│   ├── parser.py                # CSV/JSON ingestion & validation (Elyse)
-│   ├── detector.py              # Statistical anomaly engine (Jimmy)
-│   └── ai_forensic.py           # Groq API client (David)
+│   ├── db.py                    ==> MySQL CRUD wrapper (Priscilla)
+│   ├── parser.py                ==> CSV/JSON ingestion & validation (Elyse)
+│   ├── detector.py              ==> Statistical anomaly engine (Jimmy)
+│   └── ai_forensic.py           ==> Groq API client (David)
 └── utils/
     ├── __init__.py
-    ├── config.py                # Env var loading (Priscilla)
-    └── logger.py                # Audit log formatter
+    ├── config.py                ==> Env var loading (Priscilla)
+    └── logger.py                ==> Audit log formatter
 ```
 
 ---
@@ -199,4 +215,8 @@ python3 main.py
 
 ## 10. Screenshots
 
---- WE WILL ADD THEM LATER ---
+<img width="1536" height="803" alt="Screenshot 2026-07-27 101243" src="https://github.com/user-attachments/assets/a6e47964-e163-45d4-a3a5-ed89d1bce493" />
+<img width="1536" height="815" alt="Screenshot 2026-07-27 101030" src="https://github.com/user-attachments/assets/d383cf0a-e355-4fc0-b868-a7de8cdd44fd" />
+<img width="1536" height="812" alt="Screenshot 2026-07-27 100548" src="https://github.com/user-attachments/assets/4537bf72-9ddc-4c78-94b4-ead34fdfac85" />
+<img width="1536" height="812" alt="Screenshot 2026-07-27 015604" src="https://github.com/user-attachments/assets/a6ebb82c-41cf-4b44-92f1-c5600ffe6376" />
+<img width="1536" height="817" alt="Screenshot 2026-07-27 015550" src="https://github.com/user-attachments/assets/2819cb6e-dd4d-4298-b206-db9fe2353a90" />
